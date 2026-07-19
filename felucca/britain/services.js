@@ -48,16 +48,16 @@ const TAILOR_DRESS = [
 // The tailor's wares — ServUO's SBTailor buy list: graphic, how many held, the
 // buy price in gp, and the label the client shows. Selling pays half.
 const TAILOR_STOCK = [
-  { graphic: 0x0F9D, amount: 100, price: 3,  name: "sewing kit" },
-  { graphic: 0x0F9F, amount: 50,  price: 11, name: "scissors" },
-  { graphic: 0x1517, amount: 50,  price: 12, name: "shirt" },
-  { graphic: 0x1EFD, amount: 50,  price: 21, name: "fancy shirt" },
-  { graphic: 0x152E, amount: 50,  price: 7,  name: "short pants" },
-  { graphic: 0x1539, amount: 50,  price: 10, name: "long pants" },
-  { graphic: 0x1537, amount: 50,  price: 11, name: "kilt" },
-  { graphic: 0x153B, amount: 50,  price: 10, name: "half apron" },
-  { graphic: 0x1F03, amount: 30,  price: 18, name: "robe" },
-  { graphic: 0x1F7B, amount: 30,  price: 13, name: "doublet" },
+  { graphic: 0x0F9D, amount: 100, price: 3, name: "sewing kit" },
+  { graphic: 0x0F9F, amount: 50, price: 11, name: "scissors" },
+  { graphic: 0x1517, amount: 50, price: 12, name: "shirt" },
+  { graphic: 0x1EFD, amount: 50, price: 21, name: "fancy shirt" },
+  { graphic: 0x152E, amount: 50, price: 7, name: "short pants" },
+  { graphic: 0x1539, amount: 50, price: 10, name: "long pants" },
+  { graphic: 0x1537, amount: 50, price: 11, name: "kilt" },
+  { graphic: 0x153B, amount: 50, price: 10, name: "half apron" },
+  { graphic: 0x1F03, amount: 30, price: 18, name: "robe" },
+  { graphic: 0x1F7B, amount: 30, price: 13, name: "doublet" },
 ];
 
 function tailor(x, y) {
@@ -70,7 +70,7 @@ function tailor(x, y) {
 Pack.npcs["populate:britain"] = [
   banker(1428, 1682), // West Britain Bank
   banker(1650, 1608), // East Britain Bank
-  tailor(1547, 1659), // Britain tailor shop (ServUO Felucca spawn centre)
+  tailor(1550, 1659), // Britain tailor shop (ServUO Felucca spawn centre)
 ];
 
 // A vendor learns its serial only after it spawns (MobileSpawned carries it), so
