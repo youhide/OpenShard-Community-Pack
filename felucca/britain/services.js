@@ -68,7 +68,7 @@ function tailor(x, y) {
 }
 
 Pack.npcs["populate:britain"] = [
-  banker(1428, 1682), // West Britain Bank
+  banker(1427, 1684), // West Britain Bank
   banker(1650, 1608), // East Britain Bank
   tailor(1550, 1659), // Britain tailor shop (ServUO Felucca spawn centre)
 ];
