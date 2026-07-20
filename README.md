@@ -33,6 +33,7 @@ database, and nothing re-populates at boot.
 
 ```
 index.js                     the entry point: onEvent, verb dispatch
+items.js                     item triggers: what a double-clicked item does (@DClick)
 felucca/
   britain/
     spawns.js                maintained creature regions (graveyard, farmland, …)
@@ -78,12 +79,26 @@ matched by tile when the `MobileSpawned` event announces the serial), priced and
 named per item. Double-click a vendor to buy; say "sell" nearby to sell at half
 price. Stock persists with the vendor in the shard's save.
 
+### Item triggers (`items.js`)
+
+Sphere's `@DClick`, the OpenShard way. The engine handles the items it knows how
+to — a door toggles, a container opens, a spellbook unfolds, a mount is ridden —
+and forwards every *other* double-clicked item to the pack as an `ItemUsed`
+event, keyed by graphic, with reach already checked. A handler registered into
+`Pack.itemUse[graphic]` decides what the item *means*: it may reach for any op
+(`op_heal`, `op_cast_spell`, `op_spawn_item`, `op_say`, …). The engine keeps no
+default behaviour for a bare item — the meaning lives entirely here, so adding a
+usable item is a line in this file, hot-reloaded, no rebuild. The shipped example
+is a readable brown book (`.add 0x0FF2`, then double-click). Consuming the used
+item (a heal potion that vanishes on drink) awaits a consume op — see OpenShard's
+roadmap §6; today's fit is the reusable triggers (a read, a toggle, a summon).
+
 ## The seam, briefly
 
 - **Events in** (`onEvent(e)`): `e.type` is one of `PlayerEntered`,
   `MobileSpawned`, `MobileMoved`, `StepRefused`, `PlayerLeft`, `MobileDied`,
-  `SkillUsed`, `SpellCast`, `MobileSpoke`, `AdminAction`. Each carries a
-  `serial` and its own fields.
+  `SkillUsed`, `SpellCast`, `MobileSpoke`, `ItemUsed`, `AdminAction`. Each carries
+  a `serial` (or, for `ItemUsed`, an `item` and a `by`) and its own fields.
 - **Commands out** (`Deno.core.ops.op_*`): `op_spawn_mobile`, `op_spawn_item`,
   `op_spawn_container`, `op_register_spawner`, `op_clear_spawners`,
   `op_decorate`, `op_generate_doors`, `op_clear_decorations`, `op_stock`,

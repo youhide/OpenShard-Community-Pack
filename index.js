@@ -16,6 +16,7 @@
 //   Pack.decoSets[verb]    -> { facet, statics, doors, containers }
 //   Pack.doorRegions[verb] -> [ { facet, x, y, width, height }, ... ]  // door-gen
 //   Pack.vendorStock[key]  -> [ { graphic, amount, price, name }, ... ]  // "x,y"
+//   Pack.itemUse[graphic]  -> function(e)  // @DClick: what a used item does
 
 "use strict";
 
@@ -32,6 +33,16 @@ function onEvent(e) {
       ops.op_stock({ serial: e.serial, items: stock });
       delete P.vendorStock[`${e.x},${e.y}`];
     }
+    return;
+  }
+
+  // The item-trigger seam (Sphere's @DClick): the engine handles the items it
+  // knows and hands every other double-clicked item here, keyed by graphic.
+  // Reach is already checked engine-side; a handler only decides what happens.
+  if (e.type === "ItemUsed") {
+    const P = globalThis.Pack;
+    const handler = P && P.itemUse && P.itemUse[e.graphic];
+    if (handler) handler(e);
     return;
   }
 

@@ -67,13 +67,68 @@ function tailor(x, y) {
   };
 }
 
+// The mage: sells the eight reagents, empty spellbooks, and a scroll for every
+// Magery spell. Buy a book, buy scrolls, drop each scroll on the book to learn
+// it, then cast (reagents come out of your pack). A full book for quick testing
+// is the staff command ".spellbook".
+const MAGE_DRESS = [
+  { graphic: 0x1F03, layer: 0x16, hue: 0x0499 }, // robe, deep blue
+  { graphic: 0x203C, layer: 0x0B, hue: 0x0455 }, // long hair
+];
+
+// ServUO's SBReagent prices — the eight classic Magery reagents.
+const REAGENTS = [
+  { graphic: 0x0F7A, price: 5, name: "black pearl" },
+  { graphic: 0x0F7B, price: 5, name: "blood moss" },
+  { graphic: 0x0F84, price: 3, name: "garlic" },
+  { graphic: 0x0F85, price: 3, name: "ginseng" },
+  { graphic: 0x0F86, price: 6, name: "mandrake root" },
+  { graphic: 0x0F88, price: 6, name: "nightshade" },
+  { graphic: 0x0F8C, price: 3, name: "sulfurous ash" },
+  { graphic: 0x0F8D, price: 3, name: "spiders' silk" },
+];
+
+// The 64 Magery spells in the client's order. The scroll's item graphic is
+// 0x1F2D + index, and dropping that scroll on a book teaches spell `index`.
+const MAGERY_SPELLS = [
+  "Clumsy", "Create Food", "Feeblemind", "Heal", "Magic Arrow", "Night Sight", "Reactive Armor", "Weaken",
+  "Agility", "Cunning", "Cure", "Harm", "Magic Trap", "Magic Untrap", "Protection", "Strength",
+  "Bless", "Fireball", "Magic Lock", "Poison", "Telekinesis", "Teleport", "Unlock", "Wall of Stone",
+  "Arch Cure", "Arch Protection", "Curse", "Fire Field", "Greater Heal", "Lightning", "Mana Drain", "Recall",
+  "Blade Spirits", "Dispel Field", "Incognito", "Magic Reflection", "Mind Blast", "Paralyze", "Poison Field", "Summon Creature",
+  "Dispel", "Energy Bolt", "Explosion", "Invisibility", "Mark", "Mass Curse", "Paralyze Field", "Reveal",
+  "Chain Lightning", "Energy Field", "Flamestrike", "Gate Travel", "Mana Vampire", "Mass Dispel", "Meteor Swarm", "Polymorph",
+  "Earthquake", "Energy Vortex", "Resurrection", "Summon Air Elemental", "Summon Daemon", "Summon Earth Elemental", "Summon Fire Elemental", "Summon Water Elemental",
+];
+
+const MAGE_STOCK = [
+  ...REAGENTS.map((r) => ({ graphic: r.graphic, amount: 200, price: r.price, name: r.name })),
+  { graphic: 0x0EFA, amount: 20, price: 18, name: "spellbook" },
+  ...MAGERY_SPELLS.map((name, i) => ({
+    graphic: 0x1F2D + i,
+    amount: 20,
+    // Roughly by circle: first circle ~12gp, up to ~90gp for the eighth.
+    price: 12 + Math.floor(i / 8) * 11,
+    name: `${name} scroll`,
+  })),
+];
+
+function mage(x, y) {
+  return {
+    body: 0x0190, vendor: true, notoriety: 7, hits: 100,
+    name: "the mage", x, y, z: 0, equipment: MAGE_DRESS,
+  };
+}
+
 Pack.npcs["populate:britain"] = [
   banker(1427, 1684), // West Britain Bank
   banker(1650, 1608), // East Britain Bank
   tailor(1550, 1659), // Britain tailor shop (ServUO Felucca spawn centre)
+  mage(1430, 1690), // near the West Britain bank — nudge x/y if it lands in a wall
 ];
 
 // A vendor learns its serial only after it spawns (MobileSpawned carries it), so
 // the stock waits there: index.js matches the event's (x, y) back to this table
 // and calls op_stock. Key on the placement, which the event echoes unchanged.
 Pack.vendorStock["1550,1659"] = TAILOR_STOCK;
+Pack.vendorStock["1430,1690"] = MAGE_STOCK;
