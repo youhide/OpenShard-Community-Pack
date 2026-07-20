@@ -76,4 +76,4 @@ Pack.npcs["populate:britain"] = [
 // A vendor learns its serial only after it spawns (MobileSpawned carries it), so
 // the stock waits there: index.js matches the event's (x, y) back to this table
 // and calls op_stock. Key on the placement, which the event echoes unchanged.
-Pack.vendorStock["1547,1659"] = TAILOR_STOCK;
+Pack.vendorStock["1550,1659"] = TAILOR_STOCK;
