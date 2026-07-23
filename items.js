@@ -12,10 +12,9 @@
 // change, hot-reloaded on save. A handler may reach for any op: `op_heal`,
 // `op_damage`, `op_cast_spell`, `op_spawn_item`, `op_say`, `op_set_skill`, …
 //
-// Note: there is no op to *consume* the used item yet, so a one-shot like a heal
-// potion (drink and vanish) waits on that primitive — see OpenShard's roadmap
-// §6. The behaviours that fit today are the reusable ones: a read, a toggle, a
-// summon, an emote.
+// A one-shot item — a potion drunk and gone, a scroll read once — calls
+// `op_consume_item(serial, amount)` to remove itself: `amount` 0 takes the whole
+// item, a smaller amount decrements a stackable pile (one potion out of a lot).
 
 "use strict";
 
@@ -37,4 +36,14 @@ const WELCOME_LINES = [
 Pack.itemUse[BROWN_BOOK] = function (e) {
   const line = WELCOME_LINES[Math.floor(Math.random() * WELCOME_LINES.length)];
   Deno.core.ops.op_say(e.by, line, 0x0481); // a soft parchment hue
+};
+
+// A greater heal potion (graphic 0x0F0C): drink it and it mends thee, then it is
+// gone from thy pack. The one-shot the consume op exists for — potions stack, so
+// it removes just the one bottle (`amount` 1), leaving the rest of the lot.
+const HEAL_POTION = 0x0F0C;
+
+Pack.itemUse[HEAL_POTION] = function (e) {
+  Deno.core.ops.op_heal(e.by, 25);
+  Deno.core.ops.op_consume_item(e.item, 1);
 };

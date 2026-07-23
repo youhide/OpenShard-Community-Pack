@@ -89,10 +89,12 @@ event, keyed by graphic, with reach already checked. A handler registered into
 `Pack.itemUse[graphic]` decides what the item *means*: it may reach for any op
 (`op_heal`, `op_cast_spell`, `op_spawn_item`, `op_say`, …). The engine keeps no
 default behaviour for a bare item — the meaning lives entirely here, so adding a
-usable item is a line in this file, hot-reloaded, no rebuild. The shipped example
-is a readable brown book (`.add 0x0FF2`, then double-click). Consuming the used
-item (a heal potion that vanishes on drink) awaits a consume op — see OpenShard's
-roadmap §6; today's fit is the reusable triggers (a read, a toggle, a summon).
+usable item is a line in this file, hot-reloaded, no rebuild. A one-shot item —
+a potion drunk and gone, a scroll read once — calls `op_consume_item(serial,
+amount)` to remove itself (`amount` 0 takes the whole item, a smaller amount
+decrements a stackable pile). The shipped examples are a readable brown book
+(`.add 0x0FF2`, then double-click) and a greater heal potion (`0x0F0C`) that mends
+the drinker and vanishes.
 
 ### Loot tables (`loot.js`)
 
@@ -120,8 +122,9 @@ seeded rng, and a script is an external input to it, like a network packet.
 - **Commands out** (`Deno.core.ops.op_*`): `op_spawn_mobile`, `op_spawn_item`,
   `op_spawn_container`, `op_register_spawner`, `op_clear_spawners`,
   `op_decorate`, `op_generate_doors`, `op_clear_decorations`, `op_stock`,
-  `op_add_loot`, `op_say`, `op_damage`, `op_heal`, `op_cast_spell`,
-  `op_set_stats`, `op_set_skill`, `op_use_skill`, `op_control`, `op_move`, …
+  `op_add_loot`, `op_consume_item`, `op_say`, `op_damage`, `op_heal`,
+  `op_cast_spell`, `op_set_stats`, `op_set_skill`, `op_use_skill`, `op_control`,
+  `op_move`, …
 - **A scripted brain**: `op_control(serial)` takes a mobile off the engine's
   built-in AI; the pack's `onTick(serial)` then runs for it every tick.
 
