@@ -34,6 +34,7 @@ database, and nothing re-populates at boot.
 ```
 index.js                     the entry point: onEvent, verb dispatch
 items.js                     item triggers: what a double-clicked item does (@DClick)
+loot.js                      corpse loot tables: what a slain creature drops, by body
 felucca/
   britain/
     spawns.js                maintained creature regions (graveyard, farmland, …)
@@ -93,17 +94,34 @@ is a readable brown book (`.add 0x0FF2`, then double-click). Consuming the used
 item (a heal potion that vanishes on drink) awaits a consume op — see OpenShard's
 roadmap §6; today's fit is the reusable triggers (a read, a toggle, a summon).
 
+### Loot tables (`loot.js`)
+
+The pack side of the corpse loot seam. When a creature dies the engine lays its
+corpse, drops a flat baseline of gold (so a bare shard still loots), and forwards
+a `CorpseCreated` event carrying the corpse serial and the creature's `body`. A
+table registered into `Pack.loot[body]` is rolled by `index.js` and dropped into
+the corpse through `op_add_loot` — the real per-creature loot *on top of* the
+core baseline. A drop is `{ graphic, hue?, amount?, stackable?, chance? }`, where
+`amount` may be a `[min, max]` range and `stackable` merges gold/reagents but not
+a discrete weapon or armour. Adding a creature's loot is a few lines here, keyed
+by the same body id the spawns use, hot-reloaded, no rebuild. The shipped
+examples are an orc (extra gold, a chance at its dagger and leather) and a
+spectre (gold and black pearls). Because loot is the pack's, it may use
+`Math.random` freely — the engine's replayable-tick determinism is the core's
+seeded rng, and a script is an external input to it, like a network packet.
+
 ## The seam, briefly
 
 - **Events in** (`onEvent(e)`): `e.type` is one of `PlayerEntered`,
   `MobileSpawned`, `MobileMoved`, `StepRefused`, `PlayerLeft`, `MobileDied`,
-  `SkillUsed`, `SpellCast`, `MobileSpoke`, `ItemUsed`, `AdminAction`. Each carries
-  a `serial` (or, for `ItemUsed`, an `item` and a `by`) and its own fields.
+  `CorpseCreated`, `SkillUsed`, `SpellCast`, `MobileSpoke`, `ItemUsed`,
+  `AdminAction`. Each carries a `serial` (or, for `ItemUsed`, an `item` and a
+  `by`; for `CorpseCreated`, a `corpse` and a `body`) and its own fields.
 - **Commands out** (`Deno.core.ops.op_*`): `op_spawn_mobile`, `op_spawn_item`,
   `op_spawn_container`, `op_register_spawner`, `op_clear_spawners`,
   `op_decorate`, `op_generate_doors`, `op_clear_decorations`, `op_stock`,
-  `op_say`, `op_damage`, `op_heal`, `op_cast_spell`, `op_set_stats`,
-  `op_set_skill`, `op_use_skill`, `op_control`, `op_move`, …
+  `op_add_loot`, `op_say`, `op_damage`, `op_heal`, `op_cast_spell`,
+  `op_set_stats`, `op_set_skill`, `op_use_skill`, `op_control`, `op_move`, …
 - **A scripted brain**: `op_control(serial)` takes a mobile off the engine's
   built-in AI; the pack's `onTick(serial)` then runs for it every tick.
 

@@ -17,6 +17,7 @@
 //   Pack.doorRegions[verb] -> [ { facet, x, y, width, height }, ... ]  // door-gen
 //   Pack.vendorStock[key]  -> [ { graphic, amount, price, name }, ... ]  // "x,y"
 //   Pack.itemUse[graphic]  -> function(e)  // @DClick: what a used item does
+//   Pack.loot[body]        -> [ { graphic, amount, stackable, chance }, ... ]  // corpse loot
 
 "use strict";
 
@@ -43,6 +44,16 @@ function onEvent(e) {
     const P = globalThis.Pack;
     const handler = P && P.itemUse && P.itemUse[e.graphic];
     if (handler) handler(e);
+    return;
+  }
+
+  // The loot seam: a slain creature's corpse is laid (with the core's baseline
+  // gold already in it) and forwarded here by body. Roll the pack's table for
+  // that body and fill the corpse by serial — the real per-creature loot on top.
+  if (e.type === "CorpseCreated") {
+    const P = globalThis.Pack;
+    const table = P && P.loot && P.loot[e.body];
+    if (table) for (const drop of table) rollLoot(e.corpse, drop);
     return;
   }
 
@@ -77,4 +88,17 @@ function onEvent(e) {
     if (deco) ops.op_decorate(deco);
     if (doorRegions) for (const region of doorRegions) ops.op_generate_doors(region);
   }
+}
+
+// Roll one loot drop into a corpse. `amount` may be a fixed count or a [min, max]
+// range; `chance` gates whether it drops at all. See `loot.js` for the shape.
+function rollLoot(corpse, drop) {
+  if (Math.random() > (drop.chance ?? 1)) return;
+  let amount = drop.amount ?? 1;
+  if (Array.isArray(amount)) {
+    const [lo, hi] = amount;
+    amount = lo + Math.floor(Math.random() * (hi - lo + 1));
+  }
+  if (amount <= 0) return;
+  ops.op_add_loot(corpse, drop.graphic, drop.hue ?? 0, amount, drop.stackable ?? false);
 }
