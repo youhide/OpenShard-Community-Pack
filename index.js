@@ -37,6 +37,9 @@ function onEvent(e) {
     // A quest giver announces its serial the same way: match it to the quest its
     // tile names, so a double-click on it later offers that quest.
     if (P && P.Quests) P.Quests.onSpawn(e.serial, e.x, e.y);
+    // An escortable does likewise, and is taken under script control so its
+    // onTick can follow whoever leads it.
+    if (P && P.Escort) P.Escort.onSpawn(e.serial, e.x, e.y);
     return;
   }
 
@@ -46,7 +49,9 @@ function onEvent(e) {
   // and a saved log (QuestLoaded, on login) rebuilds the player's progress.
   if (e.type === "MobileUsed") {
     const P = globalThis.Pack;
-    if (P && P.Quests) P.Quests.onTalk(e.mobile, e.by);
+    // A quest giver first; an escortable if it was not one.
+    if (P && P.Quests && P.Quests.onTalk(e.mobile, e.by)) return;
+    if (P && P.Escort) P.Escort.onTalk(e.mobile, e.by);
     return;
   }
   if (e.type === "MobileSpoke") {
@@ -123,6 +128,14 @@ function onEvent(e) {
     if (deco) ops.op_decorate(deco);
     if (doorRegions) for (const region of doorRegions) ops.op_generate_doors(region);
   }
+}
+
+// The per-mobile brain the engine calls each tick for every mobile a script has
+// taken control of (op_control). Today that is the escortables: each follows its
+// escorter and pays on arrival.
+function onTick(serial) {
+  const P = globalThis.Pack;
+  if (P && P.Escort) P.Escort.tick(serial);
 }
 
 // Roll one loot drop into a corpse. `amount` may be a fixed count or a [min, max]
