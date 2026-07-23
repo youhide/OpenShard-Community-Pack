@@ -57,15 +57,18 @@ Pack.Escort = {
     eops().op_control(serial);
   },
 
-  // Double-clicked: begin (or refuse a second) escort.
+  // Double-clicked: begin (or refuse a second) escort. The destination is picked
+  // at random on accept (ServUO's PickRandomDestination) unless the tile fixes
+  // one; the reward may be a fixed number or a [min, max] range.
   onTalk(serial, by) {
     const g = Pack.escortGivers[serial];
     if (!g) return false;
     if (!g.escorter) {
       g.escorter = by;
-      eops().op_say(serial, `Lead on! I must reach ${g.cfg.dest}. You'll be paid on arrival.`, 0x35);
+      g.dest = g.cfg.dest || randomDest();
+      eops().op_say(serial, `Lead on! I must reach ${g.dest}. You'll be paid on arrival.`, 0x35);
     } else if (g.escorter === by) {
-      eops().op_say(serial, `I am with you — to ${g.cfg.dest}.`, 0x35);
+      eops().op_say(serial, `I am with you — to ${g.dest}.`, 0x35);
     } else {
       eops().op_say(serial, "Another leads me already.", 0x35);
     }
@@ -84,9 +87,9 @@ Pack.Escort = {
       g.escorter = 0;
       return;
     }
-    const dest = DESTS[g.cfg.dest];
+    const dest = DESTS[g.dest];
     if (dest && Math.max(Math.abs(me[0] - dest[0]), Math.abs(me[1] - dest[1])) <= ARRIVE) {
-      eops().op_give_item({ serial: g.escorter, graphic: 0x0eed, hue: 0, amount: g.cfg.reward, stackable: true });
+      eops().op_give_item({ serial: g.escorter, graphic: 0x0eed, hue: 0, amount: reward(g.cfg.reward), stackable: true });
       eops().op_say(serial, "We've arrived — my thanks! Here is your payment.", 0x35);
       g.escorter = 0;
       return;
@@ -99,23 +102,15 @@ Pack.Escort = {
   },
 };
 
-// A sample escortable: a traveller in Britain who wants reaching Minoc, for 500
-// gold. Placed by Populate Felucca; its tile names the destination.
-const TRAVELLER_X = 1499;
-const TRAVELLER_Y = 1629;
-Pack.npcs["populate:felucca"] = (Pack.npcs["populate:felucca"] || []).concat([
-  {
-    body: 0x0190,
-    notoriety: 7,
-    hits: 100,
-    name: "a wary traveller",
-    x: TRAVELLER_X,
-    y: TRAVELLER_Y,
-    z: 0,
-    equipment: [
-      { graphic: 0x1f03, layer: 0x16, hue: 0x0384 }, // robe
-      { graphic: 0x203b, layer: 0x0b, hue: 0x0455 }, // hair
-    ],
-  },
-]);
-Pack.escorts[`${TRAVELLER_X},${TRAVELLER_Y}`] = { dest: "minoc", reward: 500 };
+function randomDest() {
+  const towns = Object.keys(DESTS);
+  return towns[Math.floor(Math.random() * towns.length)];
+}
+
+function reward(r) {
+  if (Array.isArray(r)) return r[0] + Math.floor(Math.random() * (r[1] - r[0] + 1));
+  return r;
+}
+
+// The escortables themselves are generated (felucca/_generated/escorts.js) from
+// ServUO's BaseEscortable spawns; this file is the behaviour only.

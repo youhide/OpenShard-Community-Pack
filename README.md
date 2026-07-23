@@ -37,7 +37,8 @@ items.js                     item triggers: what a double-clicked item does (@DC
 loot.js                      corpse loot tables: what a slain creature drops, by body
 quests/
   engine.js                  the quest engine: offer, track, reward, persist
-  quests.js                  quest data + the NPCs that give them
+  quests.js                  kill/collect quest data + the NPCs that give them
+  escort.js                  the escort behaviour (follow, arrive, pay)
 tools/
   convert-servuo.cjs         one-shot ServUO -> pack converter (a build tool)
   vendor-data.cjs            town-NPC dress/banker presentation (converter input)
@@ -46,6 +47,7 @@ felucca/
     spawns.js                every Felucca monster region ("populate:felucca")
     deco.js                  every Felucca static/door/container/sign + shop door-gen
     vendors.js               every town's bankers, vendors and folk, with shop stock
+    escorts.js               every BaseEscortable spawn, as an escort-quest giver
 ```
 
 Folders follow facet and place. A data file registers what it knows into the
@@ -143,13 +145,16 @@ Progress is held in memory and mirrored to the saved blob after every change, so
 it survives a relog (`QuestLoaded` restores it on login).
 
 **Escort** quests (`escort.js`) are the objective kind that walks: an escortable
-is a giver placed on a tile naming a destination town; the pack takes it off the
-built-in AI with `op_control` and its `onTick` follows the escorter (`op_move` +
-`op_position`), paying on arrival — no new engine surface, just the scripted-brain
-seam. The shipped examples: slay five rats for the town herald (250 gold), gather
-five spiders' silk for the spellwright's apprentice (a collect quest, 120 gold),
-and escort a traveller from Britain to Minoc (500 gold) — all standing north of
-the West Britain bank. Add a quest with a few lines of data and a giver tile.
+is a giver the pack takes off the built-in AI with `op_control`, whose `onTick`
+follows the escorter (`op_move` + `op_position`) and pays on reaching a random
+destination town — no new engine surface, just the scripted-brain seam. The
+escortables themselves are generated (`felucca/_generated/escorts.js`) from
+ServUO's ~63 `BaseEscortable` spawns — wandering mages, seekers, nobles — so any
+town square has a few offering escorts for `Gold(500, 1000)`. The shipped
+hand-authored quests are *A Plague of Rats* for the town herald (kill five rats,
+250 gold) and *Silk for the Spellwright* for the apprentice (collect five spiders'
+silk, 120 gold), both north of the West Britain bank. Add a quest with a few
+lines of data and a giver tile.
 
 ## The seam, briefly
 

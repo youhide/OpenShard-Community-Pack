@@ -32,6 +32,23 @@ const OUT = path.join(PACK, "felucca", "_generated");
 
 const { BANKERS, DRESS, DEFAULT_DRESS, DEFAULT_BODY } = require("./vendor-data.cjs");
 
+// ServUO's BaseEscortable subclasses, as they appear (lower-cased) in felucca.xml,
+// mapped to a display name. These become escort-quest givers (see quests/escort.js
+// in the pack): the converter places them and marks their tiles; the pack picks a
+// random destination town and pays on arrival. Handled by convertEscorts, and
+// skipped by the vendor/spawn passes so they are not also placed as plain folk.
+const ESCORTABLE = {
+  escortablemage: "a wandering mage",
+  escortablehealer: "a wandering healer",
+  seekerofadventure: "a seeker of adventure",
+  noble: "a noble",
+  gargishnoble: "a noble",
+  peasant: "a peasant",
+  merchant: "a merchant",
+  messenger: "a messenger",
+  bridegroom: "a wedding traveller",
+};
+
 // Every class under Scripts/Mobiles by lowercased name -> its .cs file, filled by
 // scrapeCreatures. Used to find a vendor class (Mage, Armorer) and read its shop.
 const CLASS_FILES = {};
@@ -500,6 +517,7 @@ function convertVendors(creatures) {
       if (name[0] !== name[0].toLowerCase()) continue; // capitalised → a creature
       const prof = name.toLowerCase();
       if (creatures[prof]) continue; // a lower-case monster (troll, lizardman): the spawn pass owns it
+      if (ESCORTABLE[prof]) continue; // an escortable: the escort pass owns it
 
       const banker = BANKERS.has(prof);
       const shop = banker ? [] : scrapeShop(prof);
@@ -547,6 +565,61 @@ function emitVendors(v) {
     stockLines +
     "\n";
   fs.writeFileSync(path.join(OUT, "vendors.js"), body);
+}
+
+// ------------------------------------------------ 6. convert escort givers
+
+// A robe and hair for a wandering escortable.
+const ESCORT_DRESS = [
+  { graphic: 0x1f03, layer: 0x16, hue: 0x0384 },
+  { graphic: 0x203b, layer: 0x0b, hue: 0x0455 },
+];
+
+function convertEscorts() {
+  const xml = fs.readFileSync(path.join(SERVUO, "Spawns", "felucca.xml"), "utf8");
+  const npcs = [];
+  const tiles = {};
+  for (const block of xml.split("<Points>").slice(1)) {
+    const cx = num(tag(block, "CentreX")) ?? num(tag(block, "X"));
+    const cy = num(tag(block, "CentreY")) ?? num(tag(block, "Y"));
+    if (cx == null || cy == null) continue;
+    let k = 0;
+    for (const name of parseObjects(tag(block, "Objects2") || "")) {
+      const disp = ESCORTABLE[name.toLowerCase()];
+      if (!disp) continue;
+      const x = cx + k;
+      const y = cy;
+      k++;
+      npcs.push({
+        body: 0x0190,
+        notoriety: 1, // innocent (blue) — an escortable can be attacked, unlike a vendor
+        hits: 60,
+        name: disp,
+        x,
+        y,
+        z: 0,
+        equipment: ESCORT_DRESS,
+      });
+      // No fixed destination — the pack picks a random town on accept, ServUO's
+      // way; the reward is ServUO's Gold(500, 1000).
+      tiles[`${x},${y}`] = { reward: [500, 1000] };
+    }
+  }
+  return { npcs, tiles };
+}
+
+function emitEscorts(e) {
+  const npcLines = e.npcs.map((n) => "  " + JSON.stringify(n) + ",").join("\n");
+  const tileLines = Object.entries(e.tiles)
+    .map(([k, cfg]) => `Pack.escorts[${JSON.stringify(k)}] = ${JSON.stringify(cfg)};`)
+    .join("\n");
+  const body =
+    header("escort givers", "Spawns/felucca.xml (BaseEscortable spawns)", SPAWN_VERB, "Populate") +
+    `Pack.escorts = Pack.escorts || {};\n\n` +
+    `Pack.npcs["${SPAWN_VERB}"] = (Pack.npcs["${SPAWN_VERB}"] || []).concat([\n${npcLines}\n]);\n\n` +
+    tileLines +
+    "\n";
+  fs.writeFileSync(path.join(OUT, "escorts.js"), body);
 }
 
 // -------------------------------------------------------------- main
@@ -601,7 +674,12 @@ function main() {
     console.log(`  ${unknownCount} town types with no curated data (skipped), top: ${topN(vendors.unknown, 10)}`);
   }
 
-  console.log(`\nWrote ${path.relative(PACK, OUT)}/{spawns,deco,vendors}.js`);
+  console.log("Converting escort givers from felucca.xml ...");
+  const escorts = convertEscorts();
+  emitEscorts(escorts);
+  console.log(`  ${escorts.npcs.length} escortables placed as escort-quest givers`);
+
+  console.log(`\nWrote ${path.relative(PACK, OUT)}/{spawns,deco,vendors,escorts}.js`);
 }
 
 main();
