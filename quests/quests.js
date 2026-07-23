@@ -30,11 +30,26 @@ Pack.quests["rat_cull"] = {
   complete: "The sewers will rest easier tonight. Here — you have earned this.",
 };
 
-// The town herald, who gives it — placed once by Populate Felucca, in the square
-// north of the West Britain bank. When it spawns, engine.js's onSpawn matches its
-// serial to the quest by this tile (the vendor-stock pattern).
+// A collect quest: bring the spellwright's apprentice five skeins of spiders'
+// silk (a reagent the Britain mage sells). Collect objectives are not tracked as
+// you play — the engine has no inventory events — so they hand in at the counter:
+// talk to the giver and it asks the engine to take the items (all-or-nothing),
+// paying only if you brought them all.
+Pack.quests["silk_gather"] = {
+  title: "Silk for the Spellwright",
+  description: "Bring me five skeins of spiders' silk and you'll be paid.\nThe mage by the bank sells it.",
+  objectives: [{ kind: "collect", target: 0x0f8d, count: 5 }], // 0x0F8D — spiders' silk
+  rewards: [{ gold: 120 }],
+  complete: "Fine silk — my thanks. Here is your pay.",
+};
+
+// Two givers, placed once by Populate Felucca in the square north of the West
+// Britain bank. When each spawns, engine.js matches its serial to the quest by
+// its tile (the vendor-stock pattern).
 const HERALD_X = 1495;
 const HERALD_Y = 1629;
+const APPRENTICE_X = 1492;
+const APPRENTICE_Y = 1629;
 
 Pack.npcs["populate:felucca"] = (Pack.npcs["populate:felucca"] || []).concat([
   {
@@ -47,5 +62,16 @@ Pack.npcs["populate:felucca"] = (Pack.npcs["populate:felucca"] || []).concat([
     z: 0,
     equipment: HERALD_DRESS,
   },
+  {
+    body: 0x0190,
+    notoriety: 7,
+    hits: 100,
+    name: "the spellwright's apprentice",
+    x: APPRENTICE_X,
+    y: APPRENTICE_Y,
+    z: 0,
+    equipment: HERALD_DRESS,
+  },
 ]);
 Pack.questGiverTiles[`${HERALD_X},${HERALD_Y}`] = "rat_cull";
+Pack.questGiverTiles[`${APPRENTICE_X},${APPRENTICE_Y}`] = "silk_gather";

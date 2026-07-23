@@ -69,6 +69,11 @@ function onEvent(e) {
     if (P && P.Quests) P.Quests.onKill(e.killer, e.body);
     return;
   }
+  if (e.type === "ItemsTaken") {
+    const P = globalThis.Pack;
+    if (P && P.Quests) P.Quests.onItemsTaken(e.player, e.graphic, e.taken);
+    return;
+  }
   if (e.type === "QuestLoaded") {
     const P = globalThis.Pack;
     if (P && P.Quests) P.Quests.restore(e.serial, e.blob);

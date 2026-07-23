@@ -129,34 +129,44 @@ login (`op_set_quest` + a `QuestLoaded` event; `MobileDied` grew a `body` and a
 `quests/`.
 
 A quest is data: `Pack.quests[id] = { title, description, objectives: [{ kind:
-"kill"|"deliver", target, count }], rewards: [{ gold } | { graphic, hue, amount,
-stackable }] }`. A giver is an NPC placed on a tile that `Pack.questGiverTiles`
-maps to a quest id; when it spawns, `engine.js` matches its serial to the quest
-(the vendor-stock pattern). Double-click the giver to be **offered** the quest in
-a gump; **accept** and its objectives start tracking — a `kill` off `MobileDied`
-(credited to the killer, matched by body), a `deliver` off `ItemUsed`. Talk to it
-again once the objectives are met to **turn in** for the reward. Progress is held
-in memory and mirrored to the saved blob after every change, so it survives a
-relog (`QuestLoaded` restores it on login). The shipped example is *A Plague of
-Rats* — slay five rats for the town herald, standing north of the West Britain
-bank, for 250 gold. Add a quest with a few lines of data and a giver tile.
+"kill"|"deliver"|"collect", target, count }], rewards: [{ gold } | { graphic,
+hue, amount, stackable }] }`. A giver is an NPC placed on a tile that
+`Pack.questGiverTiles` maps to a quest id; when it spawns, `engine.js` matches its
+serial to the quest (the vendor-stock pattern). Double-click the giver (or say
+"quest" nearby) to be **offered** the quest in a gump; **accept** and its
+objectives track — a `kill` off `MobileDied` (credited to the killer, matched by
+body), a `deliver` off `ItemUsed`. A `collect` objective has no inventory events
+to track, so it hands in at the counter: talking to the giver calls `op_take_item`
+(all-or-nothing) and the `ItemsTaken` reply pays only if you brought them all.
+Talk to the giver once the objectives are met to **turn in** for the reward.
+Progress is held in memory and mirrored to the saved blob after every change, so
+it survives a relog (`QuestLoaded` restores it on login).
+
+**Escort** quests (`escort.js`) are the objective kind that walks: an escortable
+is a giver placed on a tile naming a destination town; the pack takes it off the
+built-in AI with `op_control` and its `onTick` follows the escorter (`op_move` +
+`op_position`), paying on arrival — no new engine surface, just the scripted-brain
+seam. The shipped examples: slay five rats for the town herald (250 gold), gather
+five spiders' silk for the spellwright's apprentice (a collect quest, 120 gold),
+and escort a traveller from Britain to Minoc (500 gold) — all standing north of
+the West Britain bank. Add a quest with a few lines of data and a giver tile.
 
 ## The seam, briefly
 
 - **Events in** (`onEvent(e)`): `e.type` is one of `PlayerEntered`,
   `MobileSpawned`, `MobileMoved`, `StepRefused`, `PlayerLeft`, `MobileDied`
   (with `body` and `killer`), `CorpseCreated`, `SkillUsed`, `SpellCast`,
-  `MobileSpoke`, `ItemUsed`, `MobileUsed` (double-clicked an NPC), `GumpAnswered`
-  (a pack gump's reply), `QuestLoaded` (a saved quest blob on login),
-  `AdminAction`. Each carries a `serial` (or, for `ItemUsed`, an `item` and a
-  `by`; for `MobileUsed`, a `mobile`, `body` and `by`; for `CorpseCreated`, a
-  `corpse` and a `body`) and its own fields.
+  `MobileSpoke`, `ItemUsed`, `MobileUsed` (double-clicked an NPC), `ItemsTaken`
+  (an `op_take_item` result), `GumpAnswered` (a pack gump's reply), `QuestLoaded`
+  (a saved quest blob on login), `AdminAction`. Each carries a `serial` (or, for
+  `ItemUsed`, an `item` and a `by`; for `MobileUsed`, a `mobile`, `body` and `by`;
+  for `CorpseCreated`, a `corpse` and a `body`) and its own fields.
 - **Commands out** (`Deno.core.ops.op_*`): `op_spawn_mobile`, `op_spawn_item`,
   `op_spawn_container`, `op_register_spawner`, `op_clear_spawners`,
   `op_decorate`, `op_generate_doors`, `op_clear_decorations`, `op_stock`,
   `op_add_loot`, `op_consume_item`, `op_say`, `op_damage`, `op_heal`,
   `op_cast_spell`, `op_set_stats`, `op_set_skill`, `op_use_skill`, `op_control`,
-  `op_move`, `op_gump`, `op_give_item`, `op_set_quest`, …
+  `op_move`, `op_gump`, `op_give_item`, `op_take_item`, `op_set_quest`, …
 - **A scripted brain**: `op_control(serial)` takes a mobile off the engine's
   built-in AI; the pack's `onTick(serial)` then runs for it every tick.
 

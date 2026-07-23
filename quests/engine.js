@@ -33,6 +33,9 @@ const OFFER_GUMP = 0x0510_0001;
 const progress = new Map();
 // Which quest a player is currently being *offered* (awaiting the gump answer).
 const pendingOffer = new Map();
+// Which giver a player is turning a collect quest in to, awaiting the ItemsTaken
+// that says whether the hand-over went through: serial -> { giver, id }.
+const pendingTurnIn = new Map();
 
 function qops() {
   return Deno.core.ops;
@@ -70,6 +73,30 @@ function sendOffer(player, quest) {
 // The whole quest is complete when every objective's count has reached its max.
 function complete(quest, entry) {
   return quest.objectives.every((o, i) => (entry.counts[i] || 0) >= o.count);
+}
+
+// A collect quest turns in at the counter, not as it is played: it "needs
+// collect" when every *other* objective is done and at least one collect
+// objective is still short — the moment to ask the engine to take the items.
+function needsCollect(quest, entry) {
+  let hasCollect = false;
+  for (let i = 0; i < quest.objectives.length; i++) {
+    const o = quest.objectives[i];
+    const done = (entry.counts[i] || 0) >= o.count;
+    if (o.kind === "collect") {
+      if (!done) hasCollect = true;
+    } else if (!done) {
+      return false; // a non-collect objective is unmet — not ready to hand in
+    }
+  }
+  return hasCollect;
+}
+
+function turnIn(giver, player, quest, entry) {
+  entry.turnedIn = true;
+  giveRewards(player, quest);
+  persist(player);
+  say(giver, quest.complete || "Well done! Take this for your trouble.");
 }
 
 function progressLine(quest, entry) {
@@ -123,15 +150,44 @@ const Quests = {
     } else if (entry.turnedIn) {
       say(giverSerial, "You have my thanks already, friend.");
     } else if (complete(quest, entry)) {
-      // Done — reward and close it out.
-      entry.turnedIn = true;
-      giveRewards(playerSerial, quest);
-      persist(playerSerial);
-      say(giverSerial, quest.complete || "Well done! Take this for your trouble.");
+      // Every objective already met (kill/deliver) — reward and close it out.
+      turnIn(giverSerial, playerSerial, quest, entry);
+    } else if (needsCollect(quest, entry)) {
+      // A collect quest hands in here: ask the engine to take the items,
+      // all-or-nothing; the ItemsTaken it reports drives the reward next tick.
+      pendingTurnIn.set(playerSerial, { giver: giverSerial, id });
+      for (const o of quest.objectives) {
+        if (o.kind === "collect") qops().op_take_item(playerSerial, o.target, o.count);
+      }
+      say(giverSerial, "Let me see what you've brought...");
     } else {
       say(giverSerial, `Not yet: ${progressLine(quest, entry)}.`);
     }
     return true;
+  },
+
+  // The engine answered an op_take_item: the collect hand-over went through, or
+  // the player was short. Satisfy the matching objective and, if the quest is now
+  // whole, pay the reward.
+  onItemsTaken(playerSerial, graphic, taken) {
+    const p = pendingTurnIn.get(playerSerial);
+    if (!p) return;
+    const quest = Pack.quests[p.id];
+    const st = progress.get(playerSerial);
+    const entry = st && st[p.id];
+    if (!quest || !entry) return;
+    quest.objectives.forEach((o, i) => {
+      if (o.kind === "collect" && o.target === graphic && taken >= o.count) {
+        entry.counts[i] = o.count;
+      }
+    });
+    persist(playerSerial);
+    if (complete(quest, entry)) {
+      pendingTurnIn.delete(playerSerial);
+      turnIn(p.giver, playerSerial, quest, entry);
+    } else if (taken === 0) {
+      say(p.giver, "You have not brought me all I asked for.");
+    }
   },
 
   // Spoke near a giver: the speech trigger. If the words hold "quest" and a giver
