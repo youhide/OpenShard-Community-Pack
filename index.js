@@ -34,6 +34,39 @@ function onEvent(e) {
       ops.op_stock({ serial: e.serial, items: stock });
       delete P.vendorStock[`${e.x},${e.y}`];
     }
+    // A quest giver announces its serial the same way: match it to the quest its
+    // tile names, so a double-click on it later offers that quest.
+    if (P && P.Quests) P.Quests.onSpawn(e.serial, e.x, e.y);
+    return;
+  }
+
+  // The quest seams. Double-clicking an NPC (MobileUsed) offers or turns in its
+  // quest; the offer dialog's answer (GumpAnswered) accepts it; a credited kill
+  // (MobileDied carries the body and the killer) advances a "slay N" objective;
+  // and a saved log (QuestLoaded, on login) rebuilds the player's progress.
+  if (e.type === "MobileUsed") {
+    const P = globalThis.Pack;
+    if (P && P.Quests) P.Quests.onTalk(e.mobile, e.by);
+    return;
+  }
+  if (e.type === "MobileSpoke") {
+    const P = globalThis.Pack;
+    if (P && P.Quests) P.Quests.onSpeech(e.serial, e.text);
+    return;
+  }
+  if (e.type === "GumpAnswered") {
+    const P = globalThis.Pack;
+    if (P && P.Quests) P.Quests.onGump(e.serial, e.gump_id, e.button);
+    return;
+  }
+  if (e.type === "MobileDied") {
+    const P = globalThis.Pack;
+    if (P && P.Quests) P.Quests.onKill(e.killer, e.body);
+    return;
+  }
+  if (e.type === "QuestLoaded") {
+    const P = globalThis.Pack;
+    if (P && P.Quests) P.Quests.restore(e.serial, e.blob);
     return;
   }
 
@@ -44,6 +77,8 @@ function onEvent(e) {
     const P = globalThis.Pack;
     const handler = P && P.itemUse && P.itemUse[e.graphic];
     if (handler) handler(e);
+    // A used item may also be a quest "deliver" target — advance that objective.
+    if (P && P.Quests) P.Quests.onDeliver(e.by, e.graphic);
     return;
   }
 
