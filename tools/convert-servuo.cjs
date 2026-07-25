@@ -751,6 +751,83 @@ function convertVendors(creatures, takenTiles) {
   return { npcs, stock, unknown, professions };
 }
 
+// Where a townsperson sleeps, for the engine's optional `gameplay.npc_schedule`.
+//
+// # This is ours, and it is a derivation, not a port
+//
+// Neither reference has the data. ServUO's NPCs stand at their posts around the
+// clock; its only scheduled-movement mechanism is a hand-placed `WayPoint` chain a
+// builder walks an NPC along, and Britannia ships none for townsfolk. There is no
+// bedroom in `Data/Decoration` either — the houses are statics, with no notion of
+// which floor tile belongs to whom.
+//
+// So a night home is derived from the one thing that *is* known good: **another
+// townsperson's post in the same town**. Those are tiles ServUO itself placed a
+// standing mobile on, so they are reachable, indoors-or-out as the town is, and on
+// the floor. The town reshuffles at dusk and sorts itself out at dawn, which reads as
+// people going somewhere rather than as people standing still.
+//
+// # How near
+//
+// The **nearest** such post between six and twenty tiles away. Both bounds earn
+// their place. Under six and the walk is invisible — the NPC is already inside its
+// two-tile wander range and never leaves. Over twenty and the engine's bounded A*
+// (`PATH_BUDGET`, 400 nodes) starts failing, at which point `step_toward` falls back
+// to a naive heading and the townsperson noses into a wall for the rest of the night;
+// a first attempt shifted by index instead of distance produced a median walk of 79
+// tiles and a worst case of 442, which is three minutes of walking through a town
+// wall. Nearest-first also keeps the pathing cheap, and LOD means the towns nobody is
+// standing in do not pay for it at all.
+//
+// Deterministic, so re-running the converter produces the same file — a random pick
+// would put a fresh diff in every regenerate.
+const NIGHT_HOME_MIN = 6;
+const NIGHT_HOME_MAX = 20;
+
+function assignNightHomes(npcs, regions) {
+  const inRect = (x, y, r) =>
+    x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
+  // The most specific town a tile falls in — the same highest-priority-wins rule the
+  // engine uses, since ServUO's nesting is flattened into a priority at conversion.
+  const townOf = (npc) => {
+    let best = null;
+    for (const r of regions) {
+      if (!r.rects.some((rect) => inRect(npc.x, npc.y, rect))) continue;
+      if (!best || r.priority > best.priority) best = r;
+    }
+    return best && best.name;
+  };
+
+  const byTown = new Map();
+  for (const npc of npcs) {
+    const town = townOf(npc);
+    if (!town) continue; // out in the wilds: no town, no home to walk to
+    if (!byTown.has(town)) byTown.set(town, []);
+    byTown.get(town).push(npc);
+  }
+
+  let homed = 0;
+  for (const group of byTown.values()) {
+    for (const npc of group) {
+      let best = null;
+      let bestDist = Infinity;
+      for (const other of group) {
+        if (other === npc) continue;
+        const d = Math.max(Math.abs(other.x - npc.x), Math.abs(other.y - npc.y));
+        if (d < NIGHT_HOME_MIN || d > NIGHT_HOME_MAX || d >= bestDist) continue;
+        best = other;
+        bestDist = d;
+      }
+      // No neighbour at a walkable remove: this one keeps to its post, which is what
+      // every NPC does with the setting off anyway.
+      if (!best) continue;
+      npc.night_home = [best.x, best.y, best.z];
+      homed++;
+    }
+  }
+  return homed;
+}
+
 function emitVendors(v) {
   const npcLines = v.npcs.map((n) => "  " + JSON.stringify(n) + ",").join("\n");
   const stockLines = Object.entries(v.stock)
@@ -1186,7 +1263,6 @@ function main() {
 
   console.log("Converting town vendors from felucca.xml ...");
   const vendors = convertVendors(creatures, takenTiles);
-  emitVendors(vendors);
   const shops = Object.keys(vendors.stock).length;
   console.log(`  ${vendors.npcs.length} town NPCs placed (${shops} with a shop)`);
   const unknownCount = Object.keys(vendors.unknown).length;
@@ -1197,6 +1273,11 @@ function main() {
   console.log("Converting regions from Data/Regions.xml ...");
   const regions = convertRegions();
   emitRegions(regions);
+
+  // Vendors are emitted after the regions, because a night home is derived by
+  // asking which town a post stands in.
+  const homed = assignNightHomes(vendors.npcs, regions.regions);
+  emitVendors(vendors);
   console.log(
     `  ${regions.regions.length} regions (` +
       Object.entries(regions.byType)
@@ -1206,6 +1287,7 @@ function main() {
         .join(", ") +
       ")"
   );
+  console.log(`  ${homed} townsfolk given a night home (gameplay.npc_schedule)`);
 
   console.log("Converting escort givers from felucca.xml ...");
   const escorts = convertEscorts(takenTiles);
