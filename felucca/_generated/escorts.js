@@ -13,77 +13,77 @@ Pack.regionSets = Pack.regionSets || {};
 Pack.escortTiles = Pack.escortTiles || {};
 
 Pack.npcs["populate:felucca"] = (Pack.npcs["populate:felucca"] || []).concat([
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":3645,"y":2661,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":3646,"y":2661,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":3647,"y":2661,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":3038,"y":827,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":3039,"y":827,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":3040,"y":827,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a peasant","x":1304,"y":1826,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":1351,"y":1816,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":1483,"y":1760,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":1484,"y":1760,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":1485,"y":1760,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":573,"y":2245,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":574,"y":2245,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":575,"y":2245,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":1372,"y":3912,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":1373,"y":3912,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":1374,"y":3912,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":3815,"y":1217,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":3816,"y":1217,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":3817,"y":1217,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":2994,"y":3451,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":2995,"y":3451,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":2996,"y":3451,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering healer","x":1333,"y":1808,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wedding traveller","x":1295,"y":1773,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":3646,"y":2668,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":3647,"y":2668,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":3648,"y":2668,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":5308,"y":1372,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":1126,"y":3688,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":1127,"y":3688,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":1128,"y":3688,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":631,"y":883,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":632,"y":883,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":633,"y":883,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":673,"y":2235,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":674,"y":2235,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":675,"y":2235,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":2993,"y":3450,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":2994,"y":3450,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":2995,"y":3450,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":3749,"y":1404,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":3750,"y":1404,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":3751,"y":1404,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":4398,"y":1049,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":4399,"y":1049,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":4400,"y":1049,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":3041,"y":827,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":3042,"y":827,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":3043,"y":827,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":631,"y":883,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":632,"y":883,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":633,"y":883,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":2068,"y":2854,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":2069,"y":2854,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":2070,"y":2854,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":1372,"y":3916,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":1373,"y":3916,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":1374,"y":3916,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a noble","x":1126,"y":3687,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a seeker of adventure","x":1127,"y":3687,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a wandering mage","x":1128,"y":3687,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
-  {"body":400,"notoriety":1,"hits":60,"name":"a merchant","x":1434,"y":1717,"z":0,"equipment":[{"graphic":7939,"layer":22,"hue":900},{"graphic":8251,"layer":11,"hue":1109}]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":3645,"y":2661,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":3646,"y":2661,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":3647,"y":2661,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":3039,"y":827,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":3040,"y":827,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":3041,"y":827,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a peasant","shoe":1,"x":1304,"y":1826,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":1351,"y":1816,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":1483,"y":1760,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":1484,"y":1760,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":1485,"y":1760,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":573,"y":2245,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":574,"y":2245,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":575,"y":2245,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":1373,"y":3912,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":1374,"y":3912,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":1375,"y":3912,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":3815,"y":1217,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":3816,"y":1217,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":3817,"y":1217,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":2994,"y":3451,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":2995,"y":3451,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":2996,"y":3451,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering healer","shoe":1,"x":1333,"y":1808,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wedding traveller","shoe":1,"x":1295,"y":1773,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":3647,"y":2668,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":3648,"y":2668,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":3649,"y":2668,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":5308,"y":1372,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":1126,"y":3688,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":1127,"y":3688,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":1128,"y":3688,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":631,"y":883,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":632,"y":883,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":633,"y":883,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":673,"y":2235,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":674,"y":2235,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":675,"y":2235,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":2994,"y":3450,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":2995,"y":3450,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":2996,"y":3450,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":3749,"y":1404,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":3750,"y":1404,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":3751,"y":1404,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":4398,"y":1049,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":4399,"y":1049,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":4400,"y":1049,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":3042,"y":827,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":3043,"y":827,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":3044,"y":827,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":634,"y":883,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":635,"y":883,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":636,"y":883,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":2068,"y":2854,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":2069,"y":2854,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":2070,"y":2854,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":1372,"y":3916,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":1373,"y":3916,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":1374,"y":3916,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a noble","shoe":1,"x":1127,"y":3687,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a seeker of adventure","shoe":1,"x":1128,"y":3687,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a wandering mage","shoe":1,"x":1129,"y":3687,"z":0,"equipment":[]},
+  {"body":400,"notoriety":1,"hits":60,"title":"a merchant","shoe":1,"x":1434,"y":1717,"z":0,"equipment":[]},
 ]);
 
 Pack.escortTiles["3645,2661"] = "";
 Pack.escortTiles["3646,2661"] = "";
 Pack.escortTiles["3647,2661"] = "";
-Pack.escortTiles["3038,827"] = "";
 Pack.escortTiles["3039,827"] = "";
 Pack.escortTiles["3040,827"] = "";
+Pack.escortTiles["3041,827"] = "";
 Pack.escortTiles["1304,1826"] = "";
 Pack.escortTiles["1351,1816"] = "";
 Pack.escortTiles["1483,1760"] = "";
@@ -92,9 +92,9 @@ Pack.escortTiles["1485,1760"] = "";
 Pack.escortTiles["573,2245"] = "";
 Pack.escortTiles["574,2245"] = "";
 Pack.escortTiles["575,2245"] = "";
-Pack.escortTiles["1372,3912"] = "";
 Pack.escortTiles["1373,3912"] = "";
 Pack.escortTiles["1374,3912"] = "";
+Pack.escortTiles["1375,3912"] = "";
 Pack.escortTiles["3815,1217"] = "";
 Pack.escortTiles["3816,1217"] = "";
 Pack.escortTiles["3817,1217"] = "";
@@ -103,9 +103,9 @@ Pack.escortTiles["2995,3451"] = "";
 Pack.escortTiles["2996,3451"] = "";
 Pack.escortTiles["1333,1808"] = "";
 Pack.escortTiles["1295,1773"] = "";
-Pack.escortTiles["3646,2668"] = "";
 Pack.escortTiles["3647,2668"] = "";
 Pack.escortTiles["3648,2668"] = "";
+Pack.escortTiles["3649,2668"] = "";
 Pack.escortTiles["5308,1372"] = "";
 Pack.escortTiles["1126,3688"] = "";
 Pack.escortTiles["1127,3688"] = "";
@@ -116,25 +116,28 @@ Pack.escortTiles["633,883"] = "";
 Pack.escortTiles["673,2235"] = "";
 Pack.escortTiles["674,2235"] = "";
 Pack.escortTiles["675,2235"] = "";
-Pack.escortTiles["2993,3450"] = "";
 Pack.escortTiles["2994,3450"] = "";
 Pack.escortTiles["2995,3450"] = "";
+Pack.escortTiles["2996,3450"] = "";
 Pack.escortTiles["3749,1404"] = "";
 Pack.escortTiles["3750,1404"] = "";
 Pack.escortTiles["3751,1404"] = "";
 Pack.escortTiles["4398,1049"] = "";
 Pack.escortTiles["4399,1049"] = "";
 Pack.escortTiles["4400,1049"] = "";
-Pack.escortTiles["3041,827"] = "";
 Pack.escortTiles["3042,827"] = "";
 Pack.escortTiles["3043,827"] = "";
+Pack.escortTiles["3044,827"] = "";
+Pack.escortTiles["634,883"] = "";
+Pack.escortTiles["635,883"] = "";
+Pack.escortTiles["636,883"] = "";
 Pack.escortTiles["2068,2854"] = "";
 Pack.escortTiles["2069,2854"] = "";
 Pack.escortTiles["2070,2854"] = "";
 Pack.escortTiles["1372,3916"] = "";
 Pack.escortTiles["1373,3916"] = "";
 Pack.escortTiles["1374,3916"] = "";
-Pack.escortTiles["1126,3687"] = "";
 Pack.escortTiles["1127,3687"] = "";
 Pack.escortTiles["1128,3687"] = "";
+Pack.escortTiles["1129,3687"] = "";
 Pack.escortTiles["1434,1717"] = "";

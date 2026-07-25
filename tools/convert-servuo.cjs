@@ -55,8 +55,93 @@ const ESCORTABLE = {
 };
 
 // Every class under Scripts/Mobiles by lowercased name -> its .cs file, filled by
-// scrapeCreatures. Used to find a vendor class (Mage, Armorer) and read its shop.
+// scrapeCreatures. Used to find a vendor class (Mage, Armorer) and read its shop
+// and its outfit.
+//
+// The *path* matters, not just the presence: ServUO keeps town NPCs in
+// Scripts/Mobiles/NPCs and creatures in Normal/Named/etc. Accepting any class with
+// a file is how `the firesteed`, `the nightmare` and a dozen other monsters ended up
+// standing in Britannia in a robe as body 400 — they are lower-case in the spawn XML
+// and their body does not resolve, so both of the old filters missed them.
 const CLASS_FILES = {};
+
+// A town NPC's class lives here. Anything else under Scripts/Mobiles is a creature.
+const NPC_CLASS_DIR = path.join("Scripts", "Mobiles", "NPCs");
+
+function isTownClass(profession) {
+  const file =
+    CLASS_FILES[profession] ||
+    CLASS_FILES[profession.replace(/guildmaster$/, "")];
+  return !!file && file.includes(NPC_CLASS_DIR);
+}
+
+// Every item class under Scripts/Items by lowercased name -> its graphic, filled by
+// scrapeItemGraphics. This is what turns a vendor class's `AddItem(new FullApron())`
+// into a graphic the engine can equip.
+const ITEM_GRAPHICS = {};
+
+function scrapeItemGraphics() {
+  const dir = path.join(SERVUO, "Scripts", "Items");
+  walk(dir, (file) => {
+    if (!file.endsWith(".cs")) return;
+    const text = fs.readFileSync(file, "utf8");
+    const re = /public class (\w+)\s*:/g;
+    const starts = [];
+    let m;
+    while ((m = re.exec(text))) starts.push({ name: m[1], at: m.index });
+    for (let i = 0; i < starts.length; i++) {
+      const block = text.slice(starts[i].at, i + 1 < starts.length ? starts[i + 1].at : text.length);
+      const key = starts[i].name.toLowerCase();
+      if (ITEM_GRAPHICS[key] != null) continue;
+      // `: base(0x1EFD, hue)` — the graphic a constructor hands its base class.
+      const g = /:\s*base\(\s*(0x[0-9A-Fa-f]+)/.exec(block);
+      if (g) ITEM_GRAPHICS[key] = parseInt(g[1], 16);
+    }
+  });
+}
+
+// The layer a worn graphic belongs on. ServUO reads it from tiledata's Quality
+// byte, which this engine's tiledata reader drops — so it is a table here, keyed by
+// the item class, exactly like the weapon and armour tables are keyed by graphic in
+// the engine. Only the classes ServUO's own InitOutfit overrides actually use.
+const OUTFIT_LAYERS = {
+  // 0x01 one-handed, 0x02 two-handed
+  smithhammer: 0x01, tongs: 0x01, sledgehammer: 0x01, hammer: 0x01,
+  shepherdscrook: 0x02, gnarledstaff: 0x02, quarterstaff: 0x02, club: 0x01,
+  butcherknife: 0x01, cleaver: 0x01, dagger: 0x01, skinningknife: 0x01,
+  hatchet: 0x01, pickaxe: 0x01, shovel: 0x02, pitchfork: 0x02, hoe: 0x02,
+  fishingpole: 0x02, harp: 0x02, lute: 0x02, lapharp: 0x02, drums: 0x02,
+  tambourine: 0x02, spellbook: 0x01, torch: 0x01, lantern: 0x01,
+  bow: 0x02, crossbow: 0x02, halberd: 0x02, bardiche: 0x02, longsword: 0x01,
+  broadsword: 0x01, katana: 0x01, scimitar: 0x01, vikingsword: 0x01,
+  warhammer: 0x02, mace: 0x01, warmace: 0x02, spear: 0x02, shortspear: 0x01,
+  woodenshield: 0x02, metalshield: 0x02, bronzeshield: 0x02, heatershield: 0x02,
+  // 0x05 shirt, 0x06 helm, 0x07 gloves, 0x0A neck, 0x0C waist
+  shirt: 0x05, fancyshirt: 0x05,
+  bascinet: 0x06, closehelm: 0x06, norsehelm: 0x06, helmet: 0x06, platehelm: 0x06,
+  cap: 0x06, feetheredhat: 0x06, featheredhat: 0x06, floppyhat: 0x06, widebrimhat: 0x06,
+  strawhat: 0x06, tallstrawhat: 0x06, wizardshat: 0x06, jesterhat: 0x06, bonnet: 0x06,
+  bandana: 0x06, skullcap: 0x06, tricorne: 0x06, hat: 0x06,
+  leathergloves: 0x07, plategloves: 0x07, ringmailgloves: 0x07, studdedgloves: 0x07,
+  bonegloves: 0x07, chainmailgloves: 0x07,
+  leathergorget: 0x0a, plategorget: 0x0a, studdedgorget: 0x0a, bonehelm: 0x06,
+  halfapron: 0x0c, bodysash: 0x0c,
+  // 0x0D inner torso (mail), 0x11 middle torso, 0x13 arms, 0x14 cloak
+  ringmailchest: 0x0d, chainchest: 0x0d, platechest: 0x0d, leatherchest: 0x0d,
+  studdedchest: 0x0d, bonechest: 0x0d, femaleplatechest: 0x0d, femaleleatherchest: 0x0d,
+  doublet: 0x11, fullapron: 0x11, tunic: 0x11, surcoat: 0x11, jestersuit: 0x11,
+  leatherarms: 0x13, platearms: 0x13, studdedarms: 0x13, ringmailarms: 0x13,
+  chainmailarms: 0x13, bonearms: 0x13,
+  cloak: 0x14,
+  // 0x16 outer torso, 0x17 outer legs, 0x18 inner legs, 0x04 pants
+  robe: 0x16, deathrobe: 0x16, plaindress: 0x16, fancydress: 0x16,
+  kilt: 0x17, skirt: 0x17,
+  leatherlegs: 0x18, platelegs: 0x18, studdedlegs: 0x18, ringmaillegs: 0x18,
+  chainlegs: 0x18, bonelegs: 0x18, leathershorts: 0x18, leatherskirt: 0x17,
+  longpants: 0x04, shortpants: 0x04,
+  // 0x03 shoes
+  shoes: 0x03, boots: 0x03, sandals: 0x03, thighboots: 0x03,
+};
 
 const SPAWN_VERB = "populate:felucca";
 const DECO_VERB = "decorate:felucca";
@@ -357,11 +442,16 @@ function convertDeco() {
 // -------------------------------------------------------------- 4. emit
 
 function header(what, source, verb, button) {
+  // A file registered at load time rather than behind an .admin button (the speech
+  // and name tables) has no verb, and saying it does would send whoever reads it
+  // looking for a button that is not there.
+  const when = verb
+    ? `Registers under "${verb}", the verb the .admin\n// "${button} Felucca" button sends.`
+    : `Registered at pack load time, not behind an .admin button.`;
   return `// Felucca — ${what}.
 //
 // GENERATED by tools/convert-servuo.cjs from ${source}. Do not edit by hand;
-// re-run the converter. Registers under "${verb}", the verb the .admin
-// "${button} Felucca" button sends.
+// re-run the converter. ${when}
 
 globalThis.Pack = globalThis.Pack || {};
 Pack.spawnSets = Pack.spawnSets || {};
@@ -506,11 +596,89 @@ function niceName(profession) {
   return "the " + profession.replace(/guildmaster$/, " guildmaster");
 }
 
-function convertVendors(creatures) {
+// ShoeType's wire byte, matching the engine's `npc::dress::ShoeType`.
+const SHOE_BITS = { none: 0, shoes: 1, boots: 2, sandals: 3, thighboots: 4 };
+
+// What a trade adds to the base outfit, and what it wears on its feet — read from
+// the trade's own class in Scripts/Mobiles/NPCs.
+//
+// This is the half of appearance that is *data*: ServUO's BaseVendor.InitOutfit
+// rolls a shirt, trousers and hair for every vendor (the engine does that now, in
+// npc::dress), and 248 vendor classes override it to add their own — the smith's
+// apron and bascinet, the mage's blue robe, the ranger's thigh boots. Those
+// overrides are the only thing that makes a street of shopkeepers legible, and they
+// are read here rather than invented.
+const outfitCache = {};
+function scrapeOutfit(profession) {
+  if (outfitCache[profession]) return outfitCache[profession];
+  const blank = { extras: [], shoe: SHOE_BITS.shoes };
+  let file = CLASS_FILES[profession] || CLASS_FILES[profession.replace(/guildmaster$/, "")];
+  if (!file) return (outfitCache[profession] = blank);
+
+  const text = fs
+    .readFileSync(file, "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "");
+
+  // The footwear the trade declares. A class that rolls between two (the Mage)
+  // takes the first, since the engine's roll is per-NPC anyway and a fixed choice
+  // here would be the one thing the shard could not vary.
+  let shoe = SHOE_BITS.shoes;
+  const shoeDecl = /ShoeType[\s\S]{0,200}?VendorShoeType\.(\w+)/.exec(text);
+  if (shoeDecl) {
+    const bits = SHOE_BITS[shoeDecl[1].toLowerCase()];
+    if (bits != null) shoe = bits;
+  }
+
+  // The InitOutfit override's own additions. Only classes that resolve to both a
+  // graphic and a layer are kept — anything else would be an item on layer zero,
+  // which the client draws nowhere.
+  const extras = [];
+  const at = text.indexOf("InitOutfit");
+  if (at >= 0) {
+    const body = text.slice(at, at + 2500);
+    const seen = new Set();
+    const re = /new (?:Server\.Items\.)?(\w+)\(([^)]*)\)/g;
+    let m;
+    while ((m = re.exec(body))) {
+      const key = m[1].toLowerCase();
+      const layer = OUTFIT_LAYERS[key];
+      const graphic = ITEM_GRAPHICS[key];
+      if (layer == null || graphic == null || seen.has(layer)) continue;
+      seen.add(layer);
+      // A literal hue in the constructor is kept; a `Utility.Random*Hue()` is left
+      // to the engine's own roll, which is the same table and varies per NPC.
+      const literal = /^\s*(0x[0-9A-Fa-f]+|\d+)\s*$/.exec(m[2] || "");
+      extras.push({ graphic, layer, hue: literal ? num(literal[1]) : 0 });
+    }
+  }
+  return (outfitCache[profession] = { extras, shoe });
+}
+
+// ServUO's personal-name lists (Data/names.xml). The engine ships a spread of them
+// as its default; the pack registers the whole thing so a full Felucca of 738
+// townsfolk does not repeat.
+function scrapeNames() {
+  const file = path.join(SERVUO, "Data", "names.xml");
+  if (!fs.existsSync(file)) return { male: [], female: [] };
+  const xml = fs.readFileSync(file, "utf8");
+  const list = (type) => {
+    const m = new RegExp(`<namelist type="${type}">([\\s\\S]*?)</namelist>`).exec(xml);
+    if (!m) return [];
+    return m[1]
+      .split(",")
+      .map((n) => n.trim())
+      .filter((n) => n && !n.includes(" "));
+  };
+  return { male: list("male"), female: list("female") };
+}
+
+function convertVendors(creatures, takenTiles) {
   const xml = fs.readFileSync(path.join(SERVUO, "Spawns", "felucca.xml"), "utf8");
   const npcs = [];
   const stock = {};
   const unknown = {};
+  const professions = new Set();
 
   // Town NPCs are keyed off the *object*, not the region name: a profession is
   // lower-case (armorer, banker, minter), a creature/animal is capitalised — so a
@@ -532,26 +700,45 @@ function convertVendors(creatures) {
 
       const banker = BANKERS.has(prof);
       const shop = banker ? [] : scrapeShop(prof);
-      const hasClass = !!(CLASS_FILES[prof] || CLASS_FILES[prof.replace(/guildmaster$/, "")]);
-      if (!banker && !shop.length && !hasClass) {
+      // A town NPC's class lives in Scripts/Mobiles/NPCs. Anything else with a class
+      // file is a creature whose body simply failed to resolve — and accepting those
+      // is how `the firesteed`, `the nightmare` and `the insanedryad` came to stand in
+      // Britannia in a robe as body 400.
+      if (!banker && !isTownClass(prof)) {
         unknown[name] = (unknown[name] || 0) + 1;
         continue;
       }
 
-      // Spread several NPCs in one region along a row so they do not stack on the
-      // one centre tile (nudge later if any lands in a wall).
-      const x = cx + k;
+      // One NPC per tile, across the whole facet and across passes. Spreading only
+      // *within* a region left 87 vendors sharing a tile with another, and since the
+      // stock table is keyed by tile and consumed on the first match, the second of
+      // each pair silently ended up with an empty shop. Five tiles were shared with
+      // an escortable, where the quest binding and the shop crate fought over one
+      // mobile.
+      let x = cx + k;
       const y = cy;
       k++;
+      while (takenTiles.has(`${x},${y}`)) x++;
+      takenTiles.add(`${x},${y}`);
+
+      professions.add(prof);
+      const { extras, shoe } = scrapeOutfit(prof);
       const npc = {
         body: DEFAULT_BODY,
         notoriety: 7, // invulnerable — townsfolk are not loot
         hits: 100,
-        name: niceName(prof),
+        // The *trade*, not a name. The engine puts a person in front of it — the
+        // pack used to send "the blacksmith" as the whole name, so all 38 of
+        // Felucca's bankers answered to "the banker".
+        title: niceName(prof),
+        shoe,
         x,
         y,
         z: 0,
-        equipment: DRESS[prof] || DEFAULT_DRESS,
+        // Only what the trade's own InitOutfit adds. The base outfit — gender, skin,
+        // hair, beard, shirt, trousers, shoes — is the engine's roll, so a street of
+        // shopkeepers is not one robe repeated 738 times.
+        equipment: extras,
       };
       if (banker) npc.banker = true;
       else if (shop.length) {
@@ -561,7 +748,7 @@ function convertVendors(creatures) {
       npcs.push(npc);
     }
   }
-  return { npcs, stock, unknown };
+  return { npcs, stock, unknown, professions };
 }
 
 function emitVendors(v) {
@@ -586,7 +773,7 @@ const ESCORT_DRESS = [
   { graphic: 0x203b, layer: 0x0b, hue: 0x0455 },
 ];
 
-function convertEscorts() {
+function convertEscorts(takenTiles) {
   const xml = fs.readFileSync(path.join(SERVUO, "Spawns", "felucca.xml"), "utf8");
   const npcs = [];
   const tiles = {};
@@ -598,18 +785,27 @@ function convertEscorts() {
     for (const name of parseObjects(tag(block, "Objects2") || "")) {
       const disp = ESCORTABLE[name.toLowerCase()];
       if (!disp) continue;
-      const x = cx + k;
+      // The same one-NPC-per-tile rule the vendor pass follows, and the same
+      // registry, so an escortable never lands on a shopkeeper: five tiles used to
+      // carry both, and the quest binding and the shop crate fought over one mobile.
+      let x = cx + k;
       const y = cy;
       k++;
+      while (takenTiles.has(`${x},${y}`)) x++;
+      takenTiles.add(`${x},${y}`);
       npcs.push({
         body: 0x0190,
         notoriety: 1, // innocent (blue) — an escortable can be attacked, unlike a vendor
         hits: 60,
-        name: disp,
+        // A wandering soul is dressed by the engine like any townsperson: the
+        // display name is its trade, so "a wandering healer" reads as it always did
+        // while the person in front of it varies.
+        title: disp,
+        shoe: 1,
         x,
         y,
         z: 0,
-        equipment: ESCORT_DRESS,
+        equipment: [],
       });
       // No fixed destination: the engine picks a random named region when the
       // escort is accepted, which is ServUO's `PickRandomDestination` — and it
@@ -618,6 +814,108 @@ function convertEscorts() {
     }
   }
   return { npcs, tiles };
+}
+
+// --------------------------------------------- 7. convert townsfolk speech
+
+// What a trade answers, and the personal names townsfolk are drawn from.
+//
+// # Why this is thin, and why it is still ServUO's
+//
+// ServUO barely has per-trade dialogue. A `BaseVendor`'s entire vocabulary is
+// cliloc 500186 ("Greetings.  Have a look around.") and 501522 ("I shall not treat
+// with scum like thee!"); the keyword machinery is `VendorAI.OnSpeech` and
+// XmlSpawner's `XmlDialog`, and neither ships lines for a baker. Sphere has 78
+// files of them, and they are not used here.
+//
+// So rather than invent a personality per trade, every answer below is *derived
+// from ServUO data the converter already has*: the greeting is 500186, the "what is
+// thy trade" answer is built from the trade's own title, and the "what dost thou
+// sell" answer lists the actual contents of that trade's SB\*.cs buy list. A shard
+// that wants written dialogue edits this file's table; the engine reads it either
+// way.
+const TRADE_KEYWORDS = ["job", "work", "trade", "profession", "occupation"];
+const WARES_KEYWORDS = ["sell", "wares", "goods", "stock", "shop", "price"];
+const GREET_KEYWORDS = ["hail", "hello", "greetings", "hi", "good day"];
+
+// A friendly list: "iron ingots, tongs and a shield".
+function andList(names) {
+  if (names.length <= 1) return names[0] || "";
+  return names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+}
+
+function convertSpeech(placed) {
+  const { male, female } = scrapeNames();
+  const trades = [];
+  // Only the trades a populated Felucca actually stands up. ServUO has 250-odd NPC
+  // classes and Britannia places 60 of them; a table for the rest is a quarter of a
+  // megabyte the shard parses at every load and no NPC ever reads.
+  for (const prof of [...placed].sort()) {
+    const title = niceName(prof);
+    const shop = BANKERS.has(prof) ? [] : scrapeShop(prof);
+
+    const entries = [
+      { keywords: GREET_KEYWORDS, lines: [`Greetings, {name}.`, `Well met, {name}.`] },
+      {
+        keywords: TRADE_KEYWORDS,
+        lines: [`I am ${title}.`, `${title.replace(/^the /, "I am the ")}, at thy service.`],
+      },
+    ];
+    if (BANKERS.has(prof)) {
+      entries.push({
+        keywords: ["bank", "balance", "gold", "account", "box"],
+        lines: [
+          "Say 'bank' and I shall open thy box, or 'balance' to hear thy total.",
+          "Thy gold is safe with me. Say 'bank'.",
+        ],
+      });
+    } else if (shop.length) {
+      // The trade's real stock, in ServUO's own words — the item names the buy list
+      // already carries, so nothing here is guessed.
+      const sample = andList(shop.slice(0, 4).map((it) => it.name));
+      entries.push({
+        keywords: WARES_KEYWORDS,
+        lines: [
+          `I deal in ${sample}. Say 'vendor buy' to see my wares.`,
+          `Say 'vendor buy' and look them over.`,
+        ],
+      });
+    }
+
+    trades.push({
+      title,
+      // 500186 for a shopkeeper; a plain townsperson greets by name.
+      greetings: shop.length
+        ? ["Greetings.  Have a look around."]
+        : [`Greetings, {name}.`, `Well met, {name}.`, `Good day to thee, {name}.`],
+      // ServUO townsfolk do not call out to an empty street, so neither do these.
+      // The engine supports barks; a shard that wants them writes them here.
+      barks: [],
+      entries,
+      // Nor do they answer speech they do not understand — that is Sphere's
+      // `DEFAULT=`, and a shopkeeper replying to every passing conversation is worse
+      // than one that waits to be asked.
+      fallback: "",
+    });
+  }
+  return { trades, male, female };
+}
+
+function emitSpeech(s) {
+  const tradeLines = s.trades.map((tr) => "    " + JSON.stringify(tr) + ",").join("\n");
+  const body =
+    header(
+      "townsfolk speech & names",
+      "ServUO BaseVendor clilocs + SB*.cs shop lists + Data/names.xml",
+      null,
+      null
+    ) +
+    `Pack.npcSpeech = {\n` +
+    `  trades: [\n${tradeLines}\n  ],\n` +
+    `  male_names: ${JSON.stringify(s.male)},\n` +
+    `  female_names: ${JSON.stringify(s.female)},\n` +
+    `};\n`;
+  fs.writeFileSync(path.join(OUT, "speech.js"), body);
 }
 
 function emitEscorts(e) {
@@ -854,6 +1152,13 @@ function main() {
   const creatures = scrapeCreatures();
   console.log(`  ${Object.keys(creatures).length} creature classes resolved to a body`);
 
+  console.log("Scraping item graphics from Scripts/Items ...");
+  scrapeItemGraphics();
+  console.log(`  ${Object.keys(ITEM_GRAPHICS).length} item classes resolved to a graphic`);
+
+  // One NPC per tile, shared between the vendor and escort passes.
+  const takenTiles = new Set();
+
   console.log("Converting spawns from felucca.xml ...");
   const spawns = convertSpawns(creatures);
   emitSpawns(spawns.groups);
@@ -880,7 +1185,7 @@ function main() {
   console.log(`  ${deco.doorRegions.length} town door-gen regions`);
 
   console.log("Converting town vendors from felucca.xml ...");
-  const vendors = convertVendors(creatures);
+  const vendors = convertVendors(creatures, takenTiles);
   emitVendors(vendors);
   const shops = Object.keys(vendors.stock).length;
   console.log(`  ${vendors.npcs.length} town NPCs placed (${shops} with a shop)`);
@@ -903,11 +1208,19 @@ function main() {
   );
 
   console.log("Converting escort givers from felucca.xml ...");
-  const escorts = convertEscorts();
+  const escorts = convertEscorts(takenTiles);
   emitEscorts(escorts);
   console.log(`  ${escorts.npcs.length} escortables placed as escort-quest givers`);
 
-  console.log(`\nWrote ${path.relative(PACK, OUT)}/{spawns,deco,regions,vendors,escorts}.js`);
+  console.log("Converting townsfolk speech and names ...");
+  const speech = convertSpeech(vendors.professions);
+  emitSpeech(speech);
+  console.log(
+    `  ${speech.trades.length} trades with lines, ` +
+      `${speech.male.length} male and ${speech.female.length} female names`
+  );
+
+  console.log(`\nWrote ${path.relative(PACK, OUT)}/{spawns,deco,regions,vendors,escorts,speech}.js`);
 }
 
 main();

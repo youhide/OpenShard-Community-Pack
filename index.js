@@ -12,7 +12,7 @@
 //
 // Registries (each data file guard-initialises and fills one):
 //   Pack.spawnSets[verb]   -> [ spawn region, ... ]
-//   Pack.npcs[verb]        -> [ { body, name, banker, x, y, z, ... }, ... ]  // placed once
+//   Pack.npcs[verb]        -> [ { body, title, shoe, banker, x, y, z, ... }, ... ]  // placed once
 //   Pack.decoSets[verb]    -> { facet, statics, doors, containers }
 //   Pack.doorRegions[verb] -> [ { facet, x, y, width, height }, ... ]  // door-gen
 //   Pack.vendorStock[key]  -> [ { graphic, amount, price, name }, ... ]  // "x,y"
@@ -21,6 +21,7 @@
 //   Pack.regionSets[verb]  -> { facet, regions: [ ... ] }  // named areas
 //   Pack.questGiverTiles[key] -> [ quest key, ... ]   // "x,y"; bound on spawn AND restore
 //   Pack.escortTiles[key]  -> destination region name, or ""  // "x,y"
+//   Pack.npcSpeech         -> { trades: [ ... ], male_names, female_names }  // load-time
 
 "use strict";
 
@@ -167,4 +168,16 @@ function rollLoot(corpse, drop) {
   }
   if (amount <= 0) return;
   ops.op_add_loot(corpse, drop.graphic, drop.hue ?? 0, amount, drop.stackable ?? false);
+}
+
+// Townsfolk speech and personal names, registered at load time (not behind an
+// `.admin` button) — the same wholesale-replace shape `op_register_quests` uses, so
+// a hot reload drops whatever this file no longer defines.
+//
+// The tables are keyed by the `title` an NPC is spawned with ("the blacksmith"),
+// which the engine keeps on the mobile and saves — so a townsperson still answers
+// after a restart. Without a table a trade falls back to the engine's own greeting,
+// which is why registering this is an improvement and not a requirement.
+if (globalThis.Pack && globalThis.Pack.npcSpeech) {
+  ops.op_register_npc_speech(globalThis.Pack.npcSpeech);
 }

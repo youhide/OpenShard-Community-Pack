@@ -25,10 +25,11 @@ Pack.questGiverTiles = Pack.questGiverTiles || {}; // "x,y" -> [quest keys]
 // `const ops` here collides with index.js' and the whole pack fails to load.
 const questOps = () => Deno.core.ops;
 
-// A worn robe and hair for the herald.
+// The herald's own robe, worn over the outfit the engine rolls for any townsperson
+// (gender, skin, hair, beard, shirt, trousers, shoes — see `npc::dress`). Additive,
+// the way a ServUO vendor class's `InitOutfit` override adds to `base.InitOutfit()`.
 const HERALD_DRESS = [
   { graphic: 0x1f03, layer: 0x16, hue: 0x0455 }, // robe, muted red-brown
-  { graphic: 0x203b, layer: 0x0b, hue: 0x0455 }, // hair
 ];
 
 questOps().op_register_quests({
@@ -99,7 +100,11 @@ Pack.npcs["populate:felucca"] = (Pack.npcs["populate:felucca"] || []).concat([
     body: 0x0190,
     notoriety: 7, // invulnerable — a quest giver is not loot
     hits: 100,
-    name: "the town herald",
+    // A trade, not a name: the engine puts a person in front of it and dresses
+    // them, so the herald reads as "Rowena the town herald" rather than as one of
+    // several hundred NPCs all called by their job.
+    title: "the town herald",
+    shoe: 1,
     x: HERALD_X,
     y: HERALD_Y,
     z: 0,
@@ -109,7 +114,8 @@ Pack.npcs["populate:felucca"] = (Pack.npcs["populate:felucca"] || []).concat([
     body: 0x0190,
     notoriety: 7,
     hits: 100,
-    name: "the spellwright's apprentice",
+    title: "the spellwright's apprentice",
+    shoe: 1,
     x: APPRENTICE_X,
     y: APPRENTICE_Y,
     z: 0,
