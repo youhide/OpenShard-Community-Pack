@@ -47,6 +47,24 @@ questOps().op_register_quests({
       rewards: [{ gold: 250, name: "250 gold" }],
       restartDelaySecs: 600,
     },
+    // The escort quest every escortable traveller gives. One definition for all
+    // ~63 of them: the objective names no region, which means "wherever this
+    // traveller asked for", chosen by the engine when the quest is accepted —
+    // ServUO's PickRandomDestination. The follow starts on accept, not on the
+    // double-click, so a traveller never wanders off after someone who only
+    // wanted to read the offer.
+    {
+      key: "escort",
+      title: "An Escort Request",
+      description:
+        "I must travel, and the roads are not safe alone. Lead me there and you will be paid for your trouble.",
+      refuse: "Then I shall wait for a braver soul.",
+      uncomplete: "We are not there yet. Lead on.",
+      complete: "We have arrived safely — my thanks, and your pay.",
+      objectives: [{ kind: "escort", count: 1, name: "escort" }],
+      rewards: [{ gold: 750, name: "750 gold" }],
+      restartDelaySecs: 300,
+    },
     // An obtain quest. Unlike the pack's old "collect", this tracks *as you
     // play* — the engine counts the backpack twice a second — and the items are
     // taken at the counter, all-or-nothing across every objective.

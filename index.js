@@ -147,7 +147,13 @@ function bindQuestNpc(serial, x, y) {
   const keys = P.questGiverTiles && P.questGiverTiles[key];
   if (keys) ops.op_bind_quest_giver(serial, keys);
   const escort = P.escortTiles && P.escortTiles[key];
-  if (escort !== undefined) ops.op_make_escortable(serial, escort);
+  if (escort !== undefined) {
+    ops.op_make_escortable(serial, escort);
+    // And it gives the escort quest, because an escort *is* a quest: the offer
+    // window, the log entry and the reward all come from that. Without this it
+    // would follow whoever double-clicked it, with nothing to accept or refuse.
+    if (!keys) ops.op_bind_quest_giver(serial, ["escort"]);
+  }
 }
 
 // Roll one loot drop into a corpse. `amount` may be a fixed count or a [min, max]
