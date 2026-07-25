@@ -226,12 +226,35 @@ function resolveBody(block) {
     first(block, /Body\s*=\s*(0x[0-9A-Fa-f]+|\d+)\s*;/) ??
     first(block, /Body\s*=\s*Utility\.RandomList\(\s*(0x[0-9A-Fa-f]+|\d+)/) ??
     first(block, /SetBody\(\s*(0x[0-9A-Fa-f]+|\d+)/) ??
-    first(block, /new int\[\]\s*{\s*(0x[0-9A-Fa-f]+|\d+)/)
+    first(block, /new int\[\]\s*{\s*(0x[0-9A-Fa-f]+|\d+)/) ??
+    // A `BaseVendor` (and so a `BaseHealer`, a `BaseEscortable`, a guildmaster) never
+    // writes a body: `BaseVendor.InitBody` rolls a human at runtime. Capitalised ones
+    // sit on spawners — 179 `WanderingHealer` points alone — and were dropped for
+    // having nothing to read. A human male is the deterministic stand-in the vendor
+    // pass already uses.
+    humanBody(block) ??
+    // `BaseMount`'s constructor takes the body positionally, after the name:
+    // `base("a ridable llama", 0xDC, 0x3EA6, AIType.AI_Animal, ...)`. Nothing else
+    // in the class says 0xDC, which is why every ridable mount — llamas, ostards —
+    // fell out of the spawns entirely.
+    first(block, /:\s*base\(\s*(?:"[^"]*"|\w+)\s*,\s*(0x[0-9A-Fa-f]+|\d+)\s*,\s*(?:0x[0-9A-Fa-f]+|\d+)\s*,\s*AIType/)
   );
 }
 
+/// The human body a `BaseVendor`-family class comes out as, or null for anything else.
+function humanBody(block) {
+  return /public class \w+\s*:\s*(?:BaseVendor|BaseHealer|BaseEscortable|BaseGuildmaster|BaseHire)\b/.test(
+    block
+  )
+    ? 0x0190
+    : null;
+}
+
 function scrapeCreatures() {
-  const dir = path.join(SERVUO, "Scripts", "Mobiles");
+  // All of `Scripts`, not just `Scripts/Mobiles`: the seasonal-event and revamped-
+  // dungeon creatures live under `Scripts/Services`, so `ShadowFiend` and its
+  // neighbours were unresolvable for no reason other than where their file sits.
+  const dir = path.join(SERVUO, "Scripts");
   const map = {};
   walk(dir, (file) => {
     if (!file.endsWith(".cs")) return;
@@ -266,6 +289,40 @@ function scrapeCreatures() {
 
 // ------------------------------------------------------- 2. convert spawns
 
+// XmlSpawner sub-tier tokens, not creature classes: a `TreasureLevel3` in an
+// `<Objects2>` list names which tier of loot the *spawner* rolls, and there is no
+// mobile to make. They were the loudest names in the unresolved report and the only
+// ones in it that were never a conversion failure.
+const NOT_A_CREATURE = /^treasurelevel\d*$/i;
+
+// A `BaseCamp` has no body of its own — it is a multi that lays out tents and then
+// `AddMobile`s its occupants — so the spawn pass could not resolve one and its
+// creatures went with it. Read from each camp's `AddMobile(new X(), ...)` calls under
+// `Scripts/Multis/Camps`, so a camp spawn point becomes its garrison.
+const CAMP_CREATURES = {};
+
+function scrapeCamps() {
+  const dir = path.join(SERVUO, "Scripts", "Multis", "Camps");
+  if (!fs.existsSync(dir)) return;
+  walk(dir, (file) => {
+    if (!file.endsWith(".cs")) return;
+    const text = fs
+      .readFileSync(file, "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/[^\n]*/g, "");
+    for (const m of text.matchAll(/public class (\w+)\s*:\s*BaseCamp/g)) {
+      const key = m[1].toLowerCase();
+      const block = text.slice(m.index);
+      const members = new Set();
+      // `AddMobile(new Orc(), ...)` names one directly; `AddMobile(Orcs, ...)` names a
+      // local whose factory returns one, so the `return new Orc();` above it counts too.
+      for (const a of block.matchAll(/AddMobile\(\s*new (\w+)\(/g)) members.add(a[1].toLowerCase());
+      for (const a of block.matchAll(/return new (\w+)\(\s*\)\s*;/g)) members.add(a[1].toLowerCase());
+      if (members.size) CAMP_CREATURES[key] = [...members];
+    }
+  });
+}
+
 // Named-NPC region prefixes: placed once by the pack, never spawner-maintained.
 const NPC_REGION = /vendor|towns|guild|quest|people|naturalist|veterinar/i;
 
@@ -296,7 +353,28 @@ function convertSpawns(creatures) {
     const objs = tag(block, "Objects2") || "";
     const list = [];
     for (const n of parseObjects(objs)) {
-      const c = creatures[n.toLowerCase()];
+      const key = n.toLowerCase();
+      // Not a mobile at all, and never was: an XmlSpawner loot tier.
+      if (NOT_A_CREATURE.test(key)) continue;
+      // Owned by another pass, not a failure here: a town trade is placed once by the
+      // vendor pass and an escortable by the escort pass. Reporting them as
+      // "unresolved creatures" made the report read as though a third of Britannia had
+      // been dropped, when what had happened is that a townsperson is not a monster.
+      if (isTownClass(key) || ESCORTABLE[key]) continue;
+      // A camp is a meta-spawner: no body of its own, and its creatures are lost with
+      // it unless it is expanded into them.
+      const camp = CAMP_CREATURES[key];
+      if (camp) {
+        for (const member of camp) {
+          const c = creatures[member];
+          if (c) list.push({ ...c, sight: 10, wander: true });
+        }
+        if (!camp.some((member) => creatures[member])) {
+          unresolved[n] = (unresolved[n] || 0) + 1;
+        }
+        continue;
+      }
+      const c = creatures[key];
       if (!c) {
         unresolved[n] = (unresolved[n] || 0) + 1;
         continue;
@@ -750,9 +828,20 @@ function convertVendors(creatures, takenTiles) {
 
     let k = 0;
     for (const name of parseObjects(tag(block, "Objects2") || "")) {
-      if (name[0] !== name[0].toLowerCase()) continue; // capitalised → a creature
+      // Case is the split, and it is about *placement* rather than about the class: a
+      // lower-case token stands in a Vendors/TownsPeople region and is placed once, a
+      // capitalised one sits on a spawner and is maintained. `WanderingHealer` is a
+      // `BaseVendor` written capitalised, and it belongs to the spawn pass for that
+      // reason — in ServUO it respawns when killed, so placing 179 invulnerable ones
+      // permanently is not the same creature.
+      if (name[0] !== name[0].toLowerCase()) continue;
       const prof = name.toLowerCase();
-      if (creatures[prof]) continue; // a lower-case monster (troll, lizardman): the spawn pass owns it
+      // A lower-case monster (troll, lizardman) belongs to the spawn pass. But every
+      // town class resolves to a body now too, since `BaseVendor.InitBody` is read
+      // rather than dropped — so "has a body" no longer means "is a monster", and the
+      // test has to say which it is. Without the second half this skipped all 710
+      // townsfolk and left twenty-one.
+      if (creatures[prof] && !isTownClass(prof)) continue;
       if (ESCORTABLE[prof]) continue; // an escortable: the escort pass owns it
 
       const banker = BANKERS.has(prof);
@@ -786,7 +875,11 @@ function convertVendors(creatures, takenTiles) {
       const nth = (placedOf[prof] = (placedOf[prof] || 0) + 1);
       const worn = extras.concat(alternates.map((pair) => pair[nth % pair.length]));
       const npc = {
-        body: DEFAULT_BODY,
+        // The trade's own body when its class names one, else the human stand-in.
+        // Nearly every town class is a `BaseVendor` and rolls a human anyway, but a
+        // `MondainQuester` like `FrightenedDryad` writes `Body = 266` — and dressing a
+        // dryad as a human shopkeeper is how it ended up standing in Britannia as one.
+        body: (creatures[prof] && creatures[prof].body) || DEFAULT_BODY,
         notoriety: 7, // invulnerable — townsfolk are not loot
         hits: 100,
         // The *trade*, not a name. The engine puts a person in front of it — the
@@ -1341,9 +1434,13 @@ function topN(obj, n) {
 function main() {
   fs.mkdirSync(OUT, { recursive: true });
 
-  console.log("Scraping creature bodies from Scripts/Mobiles ...");
+  console.log("Scraping creature bodies from Scripts ...");
   const creatures = scrapeCreatures();
-  console.log(`  ${Object.keys(creatures).length} creature classes resolved to a body`);
+  scrapeCamps();
+  console.log(
+    `  ${Object.keys(creatures).length} creature classes resolved to a body, ` +
+      `${Object.keys(CAMP_CREATURES).length} camps expanded into their garrisons`
+  );
 
   console.log("Scraping item graphics from Scripts/Items ...");
   scrapeItemGraphics();
