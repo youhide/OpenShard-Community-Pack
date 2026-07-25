@@ -277,11 +277,16 @@ function scrapeCreatures() {
         50;
       const damage = avg(block, /SetDamage\(\s*(\d+)\s*,\s*(\d+)\s*\)/) || 5;
       const karma = first(block, /Karma\s*=\s*(-?\d+)\s*;/);
+      // Its own fame, which a killer inherits — ServUO's `BaseCreature.OnDeath` hands
+      // `Titles.AwardFame(killer, Fame)`. Without it every kill in Britannia was worth
+      // nothing and no character could earn a title.
+      const fame = first(block, /Fame\s*=\s*(\d+)\s*;/) ?? 0;
       // Karma below zero is an aggressor: draw it enemy-orange (5); a peaceful
       // animal is grey (3). A rough but data-driven notoriety.
       const notoriety = karma != null && karma < 0 ? 5 : 3;
       const key = starts[i].name.toLowerCase();
-      if (!map[key]) map[key] = { body, hits, damage, notoriety };
+      if (!map[key])
+        map[key] = { body, hits, damage, notoriety, fame, karma: karma ?? 0 };
     }
   });
   return map;
@@ -379,14 +384,10 @@ function convertSpawns(creatures) {
         unresolved[n] = (unresolved[n] || 0) + 1;
         continue;
       }
-      list.push({
-        body: c.body,
-        hits: c.hits,
-        damage: c.damage,
-        notoriety: c.notoriety,
-        sight: 10,
-        wander: true,
-      });
+      // Spread rather than enumerate: the scrape grew `fame` and `karma` and a list of
+      // named fields silently dropped them, so every kill in Britannia was worth
+      // nothing and no character could earn a title.
+      list.push({ ...c, sight: 10, wander: true });
     }
     if (!list.length) continue;
 
