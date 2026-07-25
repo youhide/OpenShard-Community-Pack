@@ -4,7 +4,12 @@
 // re-run the converter. Registers under "decorate:felucca", the verb the .admin
 // "Decorate Felucca" button sends.
 
-globalThis.Pack = globalThis.Pack || { spawnSets: {}, npcs: {}, decoSets: {}, doorRegions: {} };
+globalThis.Pack = globalThis.Pack || {};
+Pack.spawnSets = Pack.spawnSets || {};
+Pack.npcs = Pack.npcs || {};
+Pack.decoSets = Pack.decoSets || {};
+Pack.doorRegions = Pack.doorRegions || {};
+Pack.regionSets = Pack.regionSets || {};
 
 Pack.decoSets["decorate:felucca"] = {
   facet: 0,

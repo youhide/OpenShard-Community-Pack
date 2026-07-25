@@ -15,6 +15,11 @@
 //     `Body =` / `SetHits` / `Karma` out of Scripts/Mobiles/**/*.cs. Named
 //     townsfolk/vendors/quest NPCs are skipped — those are placed once, not
 //     spawner-maintained (the engine's own rule).
+//   Data/Regions.xml (the Felucca facet)     -> felucca/_generated/regions.js
+//     towns, dungeons and guarded zones: rectangles, music, and the flags the
+//     engine reads (guarded, no-teleport). ServUO nests regions; the nesting is
+//     flattened here by raising the child's priority, so the engine holds a flat
+//     list and a number rather than a tree.
 //   Data/Decoration/{Britannia,Felucca}/*.cfg -> felucca/_generated/deco.js
 //     every entry carries its graphic on the type line, so classification is by
 //     class *name*: doors (open = closed+1, offset from ServUO's facing table),
@@ -55,6 +60,7 @@ const CLASS_FILES = {};
 
 const SPAWN_VERB = "populate:felucca";
 const DECO_VERB = "decorate:felucca";
+const REGION_VERB = "regions:felucca";
 
 // ServUO's BaseDoor facing -> (dx, dy) the open leaf shifts by (BaseDoor.cs
 // m_Offsets, indexed by the DoorFacing enum). The `.cfg` names the facing.
@@ -357,7 +363,12 @@ function header(what, source, verb, button) {
 // re-run the converter. Registers under "${verb}", the verb the .admin
 // "${button} Felucca" button sends.
 
-globalThis.Pack = globalThis.Pack || { spawnSets: {}, npcs: {}, decoSets: {}, doorRegions: {} };
+globalThis.Pack = globalThis.Pack || {};
+Pack.spawnSets = Pack.spawnSets || {};
+Pack.npcs = Pack.npcs || {};
+Pack.decoSets = Pack.decoSets || {};
+Pack.doorRegions = Pack.doorRegions || {};
+Pack.regionSets = Pack.regionSets || {};
 `;
 }
 
@@ -622,6 +633,209 @@ function emitEscorts(e) {
   fs.writeFileSync(path.join(OUT, "escorts.js"), body);
 }
 
+// ------------------------------------------------------- 6. convert regions
+
+// ServUO's MusicName enum in declaration order (Server/Region.cs): the index is
+// what the 0x6D packet carries, and the client owns the tracks. Invalid = -1
+// sits before OldUlt01 = 0, so it is not in this list.
+const MUSIC = [
+  "OldUlt01", "Create1", "DragFlit", "OldUlt02", "OldUlt03", "OldUlt04", "OldUlt05",
+  "OldUlt06", "Stones2", "Britain1", "Britain2", "Bucsden", "Jhelom", "LBCastle",
+  "Linelle", "Magincia", "Minoc", "Ocllo", "Samlethe", "Serpents", "Skarabra",
+  "Trinsic", "Vesper", "Wind", "Yew", "Cave01", "Dungeon9", "Forest_a", "InTown01",
+  "Jungle_a", "Mountn_a", "Plains_a", "Sailing", "Swamp_a", "Tavern01", "Tavern02",
+  "Tavern03", "Tavern04", "Death", "Combat1", "Combat2", "Combat3", "Approach",
+  "Death2", "Victory", "BTCastle", "Nujelm", "Dungeon2", "Cove", "Moonglow",
+  "Zento", "TokunoDungeon", "Taiko", "DreadHornArea", "ElfCity", "GrizzleDungeon",
+  "MelisandesLair", "ParoxysmusLair", "GwennoConversation", "GoodEndting",
+  "BadEndding", "BucsDen",
+];
+const MUSIC_INDEX = new Map(MUSIC.map((name, i) => [name.toLowerCase(), i]));
+
+// ServUO's LightCycle constants. A dungeon is dark whatever the hour; a jail is
+// dim. Everything else takes the ambient the world clock computes.
+const DUNGEON_LIGHT = 26;
+const JAIL_LIGHT = 9;
+
+// What a region *type* means, in the flags the engine actually reads. Anything
+// not named here is a plain named area: it shows on the crossing event and plays
+// its music, and changes no rule.
+function flagsForType(type) {
+  const t = (type || "").toLowerCase();
+  const flags = {};
+  if (/guarded|town|newmagincia/.test(t)) flags.guarded = true;
+  if (/dungeon|mondain/.test(t)) {
+    flags.noHousing = true;
+    flags.light = DUNGEON_LIGHT;
+  }
+  if (/jail/.test(t)) {
+    flags.noTeleport = true;
+    flags.noRecall = true;
+    flags.light = JAIL_LIGHT;
+  }
+  if (/house/.test(t)) flags.noHousing = true;
+  return flags;
+}
+
+// Pull the Felucca facet's XML out of Data/Regions.xml. A hand-rolled scan
+// rather than an XML library: the file is one shape, and the converter has no
+// dependencies by design.
+function feluccaBlock(xml) {
+  const open = xml.search(/<Facet\s+name="Felucca"\s*>/i);
+  if (open < 0) return "";
+  // Match to the closing </Facet> that balances it — facets do not nest, so the
+  // next one wins.
+  const rest = xml.slice(open);
+  const close = rest.search(/<\/Facet>/i);
+  return close < 0 ? rest : rest.slice(0, close);
+}
+
+// Every <region> in a block, with its own children removed, paired with the
+// text of those children — so the parse can recurse without an XML tree.
+function splitRegions(block) {
+  const out = [];
+  const open = /<region\b([^>]*)>/gi;
+  let match;
+  while ((match = open.exec(block))) {
+    const attrs = match[1];
+    const start = open.lastIndex;
+    // Find the </region> that closes this one, counting nested opens.
+    let depth = 1;
+    const scan = /<region\b[^>]*>|<\/region>/gi;
+    scan.lastIndex = start;
+    let end = block.length;
+    let inner;
+    while ((inner = scan.exec(block))) {
+      depth += inner[0][1] === "/" ? -1 : 1;
+      if (depth === 0) {
+        end = inner.index;
+        break;
+      }
+    }
+    out.push({ attrs, body: block.slice(start, end) });
+    open.lastIndex = end;
+  }
+  return out;
+}
+
+function attr(attrs, name) {
+  const m = attrs.match(new RegExp(name + '\\s*=\\s*"([^"]*)"', "i"));
+  return m ? m[1] : null;
+}
+
+// A numeric attribute, or NaN when it is not there. `Number(null)` is *zero*,
+// not NaN, which quietly turned every rectangle with no zmin into a region one
+// unit tall — a town nobody standing in a cellar was ever in.
+function numAttr(attrs, name) {
+  const raw = attr(attrs, name);
+  return raw === null || raw.trim() === "" ? NaN : Number(raw);
+}
+
+// A region's own body, with every nested <region> removed. Without this a parent
+// inherits its children's rectangles (and their <zrange>), which both bloats the
+// data and gives the parent ground that belongs to the child.
+function ownBody(body) {
+  let out = "";
+  let depth = 0;
+  let last = 0;
+  const scan = /<region\b[^>]*>|<\/region>/gi;
+  let m;
+  while ((m = scan.exec(body))) {
+    if (m[0][1] === "/") {
+      depth -= 1;
+      if (depth === 0) last = scan.lastIndex;
+    } else {
+      if (depth === 0) out += body.slice(last, m.index);
+      depth += 1;
+    }
+  }
+  return out + body.slice(last);
+}
+
+// One region, flattened: itself plus every descendant, each a region of its own
+// with a priority above its parent's. A child inherits what it does not say —
+// ServUO walks the parent chain at lookup time; doing it here means the engine
+// never has to.
+function flattenRegion(node, parent, out) {
+  const type = attr(node.attrs, "type") || (parent ? parent.type : "");
+  const name = attr(node.attrs, "name") || (parent ? parent.name : "");
+  const declared = numAttr(node.attrs, "priority");
+  const priority = Number.isFinite(declared) && declared
+    ? Math.min(declared, 250)
+    : (parent ? Math.min(parent.priority + 1, 250) : 50);
+
+  // Rectangles, with the height band a <zrange> or a rect's own zmin/zmax gives.
+  const own = ownBody(node.body);
+  const zrange = own.match(/<zrange\b([^>]*)\/?>/i);
+  const bandMin = zrange ? numAttr(zrange[1], "min") : NaN;
+  const bandMax = zrange ? numAttr(zrange[1], "max") : NaN;
+  const rects = [];
+  const rectRe = /<rect\b([^>]*)\/?>/gi;
+  let r;
+  while ((r = rectRe.exec(own))) {
+    const a = r[1];
+    const x = numAttr(a, "x");
+    const y = numAttr(a, "y");
+    const width = numAttr(a, "width");
+    const height = numAttr(a, "height");
+    if (![x, y, width, height].every(Number.isFinite)) continue;
+    if (width <= 0 || height <= 0) continue;
+    const zmin = numAttr(a, "zmin");
+    const zmax = numAttr(a, "zmax");
+    const rect = { x, y, width, height };
+    const lo = Number.isFinite(zmin) ? zmin : bandMin;
+    const hi = Number.isFinite(zmax) ? zmax : bandMax;
+    if (Number.isFinite(lo)) rect.zMin = Math.max(-128, Math.min(127, lo));
+    if (Number.isFinite(hi)) rect.zMax = Math.max(-128, Math.min(127, hi));
+    rects.push(rect);
+  }
+
+  const music = own.match(/<music\b([^>]*)\/?>/i);
+  const track = music ? MUSIC_INDEX.get((attr(music[1], "name") || "").toLowerCase()) : undefined;
+  const flags = flagsForType(type);
+  // <guards disabled="true"/> turns a guarded region's guards off — Buccaneer's
+  // Den and the like, where the whole point is that nobody is coming.
+  const guards = own.match(/<guards\b([^>]*)\/?>/i);
+  if (guards && /true/i.test(attr(guards[1], "disabled") || "")) flags.guarded = false;
+
+  const self = { name, type, priority, rects, flags, music: track };
+  // A region with no rectangles of its own is a container in the XML, not a
+  // place: its children carry the geometry.
+  if (rects.length) out.push(self);
+  for (const child of splitRegions(node.body)) flattenRegion(child, self, out);
+  return out;
+}
+
+function convertRegions() {
+  const file = path.join(SERVUO, "Data", "Regions.xml");
+  if (!fs.existsSync(file)) return { regions: [], byType: {} };
+  const block = feluccaBlock(fs.readFileSync(file, "utf8"));
+  const flat = [];
+  for (const node of splitRegions(block)) flattenRegion(node, null, flat);
+  const byType = {};
+  for (const r of flat) byType[r.type || "(plain)"] = (byType[r.type || "(plain)"] || 0) + 1;
+  return { regions: flat, byType };
+}
+
+function emitRegions(result) {
+  const fmt = (r) => {
+    const parts = [`name: ${JSON.stringify(r.name)}`, `priority: ${r.priority}`];
+    parts.push(`rects: [${r.rects.map((t) => JSON.stringify(t)).join(", ")}]`);
+    for (const key of ["guarded", "noTeleport", "noRecall", "noHousing", "safe"]) {
+      if (r.flags[key]) parts.push(`${key}: true`);
+    }
+    if (r.flags.light !== undefined) parts.push(`light: ${r.flags.light}`);
+    if (r.music !== undefined) parts.push(`music: ${r.music}`);
+    return `  { ${parts.join(", ")} },`;
+  };
+  const body =
+    header("named regions", "Data/Regions.xml", REGION_VERB, "Regions:") +
+    `\nPack.regionSets["${REGION_VERB}"] = {\n  facet: 0,\n  regions: [\n  ` +
+    result.regions.map(fmt).join("\n  ") +
+    `\n  ],\n};\n`;
+  fs.writeFileSync(path.join(OUT, "regions.js"), body);
+}
+
 // -------------------------------------------------------------- main
 
 function topN(obj, n) {
@@ -674,12 +888,25 @@ function main() {
     console.log(`  ${unknownCount} town types with no curated data (skipped), top: ${topN(vendors.unknown, 10)}`);
   }
 
+  console.log("Converting regions from Data/Regions.xml ...");
+  const regions = convertRegions();
+  emitRegions(regions);
+  console.log(
+    `  ${regions.regions.length} regions (` +
+      Object.entries(regions.byType)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([k, v]) => `${k}(${v})`)
+        .join(", ") +
+      ")"
+  );
+
   console.log("Converting escort givers from felucca.xml ...");
   const escorts = convertEscorts();
   emitEscorts(escorts);
   console.log(`  ${escorts.npcs.length} escortables placed as escort-quest givers`);
 
-  console.log(`\nWrote ${path.relative(PACK, OUT)}/{spawns,deco,vendors,escorts}.js`);
+  console.log(`\nWrote ${path.relative(PACK, OUT)}/{spawns,deco,regions,vendors,escorts}.js`);
 }
 
 main();

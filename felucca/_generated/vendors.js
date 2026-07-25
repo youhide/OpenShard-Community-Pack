@@ -4,7 +4,12 @@
 // re-run the converter. Registers under "populate:felucca", the verb the .admin
 // "Populate Felucca" button sends.
 
-globalThis.Pack = globalThis.Pack || { spawnSets: {}, npcs: {}, decoSets: {}, doorRegions: {} };
+globalThis.Pack = globalThis.Pack || {};
+Pack.spawnSets = Pack.spawnSets || {};
+Pack.npcs = Pack.npcs || {};
+Pack.decoSets = Pack.decoSets || {};
+Pack.doorRegions = Pack.doorRegions || {};
+Pack.regionSets = Pack.regionSets || {};
 Pack.vendorStock = Pack.vendorStock || {};
 
 Pack.npcs["populate:felucca"] = (Pack.npcs["populate:felucca"] || []).concat([

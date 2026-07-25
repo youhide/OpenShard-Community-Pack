@@ -18,6 +18,7 @@
 //   Pack.vendorStock[key]  -> [ { graphic, amount, price, name }, ... ]  // "x,y"
 //   Pack.itemUse[graphic]  -> function(e)  // @DClick: what a used item does
 //   Pack.loot[body]        -> [ { graphic, amount, stackable, chance }, ... ]  // corpse loot
+//   Pack.regionSets[verb]  -> { facet, regions: [ ... ] }  // named areas
 
 "use strict";
 
@@ -104,7 +105,13 @@ function onEvent(e) {
 
   if (e.type !== "AdminAction") return;
 
-  const P = globalThis.Pack || { spawnSets: {}, npcs: {}, decoSets: {}, doorRegions: {} };
+  const P = globalThis.Pack || {
+    spawnSets: {},
+    npcs: {},
+    decoSets: {},
+    doorRegions: {},
+    regionSets: {},
+  };
 
   switch (e.action) {
     case "clear":
@@ -113,6 +120,18 @@ function onEvent(e) {
     case "clear:deco":
       ops.op_clear_decorations();
       return;
+    case "clear:regions":
+      ops.op_clear_regions(0);
+      return;
+  }
+
+  // A regions verb hands the facet its named areas — the towns, dungeons and
+  // guarded zones the engine reads for guards, music, light and the no-teleport
+  // rule. The whole set at once: the engine replaces what that facet had.
+  const regions = P.regionSets && P.regionSets[e.action];
+  if (regions) {
+    ops.op_register_regions(regions);
+    return;
   }
 
   // A populate verb both registers the maintained creature regions and places the

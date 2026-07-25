@@ -25,7 +25,7 @@ The engine concatenates every `.js` under it into one script — data files firs
 shard reloads the pack.
 
 Then, on a fresh (empty-store) world, a game master runs `.admin` in game and
-presses the Populate/Decorate buttons **once**. The world is saved whole from
+presses the Populate/Decorate/Regions buttons **once**. The world is saved whole from
 that point on — spawns, decoration, doors, vendor stock all persist in the
 database, and nothing re-populates at boot.
 
@@ -48,6 +48,7 @@ felucca/
     deco.js                  every Felucca static/door/container/sign + shop door-gen
     vendors.js               every town's bankers, vendors and folk, with shop stock
     escorts.js               every BaseEscortable spawn, as an escort-quest giver
+    regions.js               every named area: towns, dungeons, guarded zones ("regions:felucca")
 ```
 
 Folders follow facet and place. A data file registers what it knows into the
@@ -168,6 +169,7 @@ lines of data and a giver tile.
   for `CorpseCreated`, a `corpse` and a `body`) and its own fields.
 - **Commands out** (`Deno.core.ops.op_*`): `op_spawn_mobile`, `op_spawn_item`,
   `op_spawn_container`, `op_register_spawner`, `op_clear_spawners`,
+  `op_register_regions`, `op_clear_regions`,
   `op_decorate`, `op_generate_doors`, `op_clear_decorations`, `op_stock`,
   `op_add_loot`, `op_consume_item`, `op_say`, `op_damage`, `op_heal`,
   `op_cast_spell`, `op_set_stats`, `op_set_skill`, `op_use_skill`, `op_control`,
@@ -219,8 +221,20 @@ SERVUO=/path/to/ServUO node tools/convert-servuo.cjs
   shops, all priced as ServUO prices them. Under `populate:felucca` too, so one
   Populate lays monsters *and* townsfolk.
 
-Both verbs register under the single `.admin` **Populate Felucca** /
-**Decorate Felucca** buttons, so one click lays the whole facet. The
+- **Regions** (`regions.js`) — `Data/Regions.xml`, the Felucca facet: 129 named
+  areas (towns, dungeons, the jail, the moongates) as rectangles with their height
+  bands. The region *type* becomes the flags the engine reads — a `TownRegion` or
+  `GuardedRegion` is `guarded` (so "guards" is answered there and a murderer who
+  walks in is hunted), a `DungeonRegion` is dark and unhousable, the `Jail` bars
+  teleporting — and `<guards disabled="true"/>` turns them off again, as it does
+  for Buccaneer's Den. `<music name>` becomes the client's own `MusicName` index,
+  so no filename travels. ServUO nests regions; the nesting is **flattened here**,
+  a child taking a higher priority, so the engine holds a flat list rather than a
+  tree. Under `regions:felucca`.
+
+The verbs register under the `.admin` **Populate Felucca** /
+**Decorate Felucca** / **Regions: Felucca** buttons, so one click each lays the
+whole facet. The
 `_generated/` files are committed; re-run the converter to refresh them. It is
 best-effort and reports what it skips (a creature whose body is not a literal /
 `RandomList` / `SetBody` / array; a profession with no curated stock), so
