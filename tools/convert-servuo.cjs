@@ -611,9 +611,10 @@ function convertEscorts() {
         z: 0,
         equipment: ESCORT_DRESS,
       });
-      // No fixed destination — the pack picks a random town on accept, ServUO's
-      // way; the reward is ServUO's Gold(500, 1000).
-      tiles[`${x},${y}`] = { reward: [500, 1000] };
+      // No fixed destination: the engine picks a random named region when the
+      // escort is accepted, which is ServUO's `PickRandomDestination` — and it
+      // can, because the converter also brings the regions across.
+      tiles[`${x},${y}`] = "";
     }
   }
   return { npcs, tiles };
@@ -622,11 +623,11 @@ function convertEscorts() {
 function emitEscorts(e) {
   const npcLines = e.npcs.map((n) => "  " + JSON.stringify(n) + ",").join("\n");
   const tileLines = Object.entries(e.tiles)
-    .map(([k, cfg]) => `Pack.escorts[${JSON.stringify(k)}] = ${JSON.stringify(cfg)};`)
+    .map(([k, dest]) => `Pack.escortTiles[${JSON.stringify(k)}] = ${JSON.stringify(dest)};`)
     .join("\n");
   const body =
-    header("escort givers", "Spawns/felucca.xml (BaseEscortable spawns)", SPAWN_VERB, "Populate") +
-    `Pack.escorts = Pack.escorts || {};\n\n` +
+    header("escortable travellers", "Spawns/felucca.xml (BaseEscortable spawns)", SPAWN_VERB, "Populate") +
+    `Pack.escortTiles = Pack.escortTiles || {};\n\n` +
     `Pack.npcs["${SPAWN_VERB}"] = (Pack.npcs["${SPAWN_VERB}"] || []).concat([\n${npcLines}\n]);\n\n` +
     tileLines +
     "\n";

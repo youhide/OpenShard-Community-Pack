@@ -36,9 +36,7 @@ index.js                     the entry point: onEvent, verb dispatch
 items.js                     item triggers: what a double-clicked item does (@DClick)
 loot.js                      corpse loot tables: what a slain creature drops, by body
 quests/
-  engine.js                  the quest engine: offer, track, reward, persist
-  quests.js                  kill/collect quest data + the NPCs that give them
-  escort.js                  the escort behaviour (follow, arrive, pay)
+  quests.js                  quest data (op_register_quests) + the NPCs that give them
 tools/
   convert-servuo.cjs         one-shot ServUO -> pack converter (a build tool)
   vendor-data.cjs            town-NPC dress/banker presentation (converter input)
@@ -47,7 +45,7 @@ felucca/
     spawns.js                every Felucca monster region ("populate:felucca")
     deco.js                  every Felucca static/door/container/sign + shop door-gen
     vendors.js               every town's bankers, vendors and folk, with shop stock
-    escorts.js               every BaseEscortable spawn, as an escort-quest giver
+    escorts.js               every BaseEscortable spawn, as an escortable traveller
     regions.js               every named area: towns, dungeons, guarded zones ("regions:felucca")
 ```
 
@@ -123,39 +121,55 @@ seeded rng, and a script is an external input to it, like a network packet.
 
 ### Quests (`quests/`)
 
-A whole quest system, pack-owned. The engine grew four thin seams for it — a
-`MobileUsed` event so double-clicking an NPC reaches the pack, a pack-driven gump
-(`op_gump` + a `GumpAnswered` event), an `op_give_item` that drops a reward into
-the backpack, and a per-character quest blob the engine stores and hands back on
-login (`op_set_quest` + a `QuestLoaded` event; `MobileDied` grew a `body` and a
-`killer` so a kill can be attributed) — and everything a quest *is* lives here in
-`quests/`.
+**The quest system is the engine's; the quests are the pack's.** It used to be
+the other way round, and that did not survive a real client: the paperdoll's
+Quest button is a *packet* (`0xD7`/`0x32`) no script can answer, so there was no
+quest log at all; and a giver bound in a JS map stopped being a giver at the
+first restart, because restored NPCs announced nothing. Both are fixed in
+`crates/quests`, which now owns the offer window, the log, progress, timers,
+turn-in, escorts and the save — a port of ServUO's Mondain's Legacy system.
 
-A quest is data: `Pack.quests[id] = { title, description, objectives: [{ kind:
-"kill"|"deliver"|"collect", target, count }], rewards: [{ gold } | { graphic,
-hue, amount, stackable }] }`. A giver is an NPC placed on a tile that
-`Pack.questGiverTiles` maps to a quest id; when it spawns, `engine.js` matches its
-serial to the quest (the vendor-stock pattern). Double-click the giver (or say
-"quest" nearby) to be **offered** the quest in a gump; **accept** and its
-objectives track — a `kill` off `MobileDied` (credited to the killer, matched by
-body), a `deliver` off `ItemUsed`. A `collect` objective has no inventory events
-to track, so it hands in at the counter: talking to the giver calls `op_take_item`
-(all-or-nothing) and the `ItemsTaken` reply pays only if you brought them all.
-Talk to the giver once the objectives are met to **turn in** for the reward.
-Progress is held in memory and mirrored to the saved blob after every change, so
-it survives a relog (`QuestLoaded` restores it on login).
+What is left here is content. `quests/quests.js` calls `op_register_quests` at
+load time with the whole list (wholesale — a hot reload replaces it), each quest
+being `{ key, title, description, refuse, uncomplete, complete, objectives,
+rewards, allObjectives, doneOnce, restartDelaySecs }`. Objective kinds:
 
-**Escort** quests (`escort.js`) are the objective kind that walks: an escortable
-is a giver the pack takes off the built-in AI with `op_control`, whose `onTick`
-follows the escorter (`op_move` + `op_position`) and pays on reaching a random
-destination town — no new engine surface, just the scripted-brain seam. The
-escortables themselves are generated (`felucca/_generated/escorts.js`) from
-ServUO's ~63 `BaseEscortable` spawns — wandering mages, seekers, nobles — so any
-town square has a few offering escorts for `Gold(500, 1000)`. The shipped
-hand-authored quests are *A Plague of Rats* for the town herald (kill five rats,
-250 gold) and *Silk for the Spellwright* for the apprentice (collect five spiders'
-silk, 120 gold), both north of the West Britain bank. Add a quest with a few
-lines of data and a giver tile.
+| kind | `target` | `destination` |
+|---|---|---|
+| `slay` | the creature body | — |
+| `obtain` | the item graphic | — |
+| `deliver` | the item graphic | the destination NPC's name |
+| `escort` | — | the destination region's name |
+
+`obtain` tracks **as you play** — the engine counts the backpack twice a second —
+and the items are taken at the counter, all-or-nothing across every objective,
+which the old pack version got wrong (it took each objective independently, so a
+player short on the second lost what they brought for the first).
+
+A giver is an NPC placed on a tile that `Pack.questGiverTiles` maps to a list of
+quest keys; `index.js` calls `op_bind_quest_giver` when it spawns **and when it
+is restored** (the `MobileRestored` event — the two are deliberately different,
+because a handler that *creates* must not run twice). The binding is saved on the
+mobile by the engine, so it survives a reboot without the pack remembering
+anything. `Pack.escortTiles` does the same for escortables, with an empty
+destination meaning "the engine picks a town when someone accepts", ServUO's
+`PickRandomDestination`. The ~63 `BaseEscortable` spawns are generated into
+`felucca/_generated/escorts.js`.
+
+Reach the log through the paperdoll's Quest button, a staff `.quests`, or the
+"Quest Log" entry on your own context menu. **If the paperdoll shows no Quest
+button, check `[gameplay] expansion` in `openshard.toml`** — the client draws its
+paperdoll from the expansion the shard advertises, and only `"ml"` (the default)
+has quests in it.
+
+The one pack hook left is `Pack.questRewards[key]`, read off a `QuestCompleted`
+event, for a reward the core's flat list cannot express — a title, a follow-up, a
+line of dialogue. The declared rewards are already paid by then, so a script
+*adds*: the `CorpseCreated` loot split again.
+
+The shipped quests are *A Plague of Rats* for the town herald (slay five rats,
+250 gold) and *Silk for the Spellwright* for the apprentice (obtain five spiders'
+silk, 120 gold), both north of the West Britain bank.
 
 ## The seam, briefly
 

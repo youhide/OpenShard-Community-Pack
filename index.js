@@ -19,6 +19,8 @@
 //   Pack.itemUse[graphic]  -> function(e)  // @DClick: what a used item does
 //   Pack.loot[body]        -> [ { graphic, amount, stackable, chance }, ... ]  // corpse loot
 //   Pack.regionSets[verb]  -> { facet, regions: [ ... ] }  // named areas
+//   Pack.questGiverTiles[key] -> [ quest key, ... ]   // "x,y"; bound on spawn AND restore
+//   Pack.escortTiles[key]  -> destination region name, or ""  // "x,y"
 
 "use strict";
 
@@ -35,49 +37,32 @@ function onEvent(e) {
       ops.op_stock({ serial: e.serial, items: stock });
       delete P.vendorStock[`${e.x},${e.y}`];
     }
-    // A quest giver announces its serial the same way: match it to the quest its
-    // tile names, so a double-click on it later offers that quest.
-    if (P && P.Quests) P.Quests.onSpawn(e.serial, e.x, e.y);
-    // An escortable does likewise, and is taken under script control so its
-    // onTick can follow whoever leads it.
-    if (P && P.Escort) P.Escort.onSpawn(e.serial, e.x, e.y);
+    // A quest giver announces its serial the same way: match it to the quests
+    // its tile names. The engine keeps the binding on the mobile and saves it,
+    // so this is a first-placement step, not a per-boot one.
+    bindQuestNpc(e.serial, e.x, e.y);
     return;
   }
 
-  // The quest seams. Double-clicking an NPC (MobileUsed) offers or turns in its
-  // quest; the offer dialog's answer (GumpAnswered) accepts it; a credited kill
-  // (MobileDied carries the body and the killer) advances a "slay N" objective;
-  // and a saved log (QuestLoaded, on login) rebuilds the player's progress.
-  if (e.type === "MobileUsed") {
-    const P = globalThis.Pack;
-    // A quest giver first; an escortable if it was not one.
-    if (P && P.Quests && P.Quests.onTalk(e.mobile, e.by)) return;
-    if (P && P.Escort) P.Escort.onTalk(e.mobile, e.by);
+  // An NPC came back from the save at boot. NOT a spawn: anything that *creates*
+  // (a vendor's stock crate) must not run again, or it duplicates every reboot.
+  // Binding is idempotent, so it runs here too — and has to, because a shard
+  // whose quest givers were only ever bound on first placement went quietly inert
+  // at the first restart.
+  if (e.type === "MobileRestored") {
+    bindQuestNpc(e.serial, e.x, e.y);
     return;
   }
-  if (e.type === "MobileSpoke") {
+
+  // Quests are the engine's: offering, tracking, the log window and the save all
+  // live in `crates/quests`. What is left for a pack is the *content*
+  // (quests/quests.js) and this one hook, for a reward the core's flat list
+  // cannot express — a title, a follow-up, a line of dialogue. The declared
+  // rewards are already paid by the time this arrives, so a script adds.
+  if (e.type === "QuestCompleted") {
     const P = globalThis.Pack;
-    if (P && P.Quests) P.Quests.onSpeech(e.serial, e.text);
-    return;
-  }
-  if (e.type === "GumpAnswered") {
-    const P = globalThis.Pack;
-    if (P && P.Quests) P.Quests.onGump(e.serial, e.gump_id, e.button);
-    return;
-  }
-  if (e.type === "MobileDied") {
-    const P = globalThis.Pack;
-    if (P && P.Quests) P.Quests.onKill(e.killer, e.body);
-    return;
-  }
-  if (e.type === "ItemsTaken") {
-    const P = globalThis.Pack;
-    if (P && P.Quests) P.Quests.onItemsTaken(e.player, e.graphic, e.taken);
-    return;
-  }
-  if (e.type === "QuestLoaded") {
-    const P = globalThis.Pack;
-    if (P && P.Quests) P.Quests.restore(e.serial, e.blob);
+    const handler = P && P.questRewards && P.questRewards[e.key];
+    if (handler) handler(e);
     return;
   }
 
@@ -88,8 +73,6 @@ function onEvent(e) {
     const P = globalThis.Pack;
     const handler = P && P.itemUse && P.itemUse[e.graphic];
     if (handler) handler(e);
-    // A used item may also be a quest "deliver" target — advance that objective.
-    if (P && P.Quests) P.Quests.onDeliver(e.by, e.graphic);
     return;
   }
 
@@ -154,12 +137,17 @@ function onEvent(e) {
   }
 }
 
-// The per-mobile brain the engine calls each tick for every mobile a script has
-// taken control of (op_control). Today that is the escortables: each follows its
-// escorter and pays on arrival.
-function onTick(serial) {
+// Bind a placed or restored NPC to whatever its tile says it is: a quest giver,
+// an escortable, or neither. Both bindings are saved with the mobile by the
+// engine, so this is idempotent and safe to run on spawn and on restore alike.
+function bindQuestNpc(serial, x, y) {
   const P = globalThis.Pack;
-  if (P && P.Escort) P.Escort.tick(serial);
+  if (!P) return;
+  const key = `${x},${y}`;
+  const keys = P.questGiverTiles && P.questGiverTiles[key];
+  if (keys) ops.op_bind_quest_giver(serial, keys);
+  const escort = P.escortTiles && P.escortTiles[key];
+  if (escort !== undefined) ops.op_make_escortable(serial, escort);
 }
 
 // Roll one loot drop into a corpse. `amount` may be a fixed count or a [min, max]
