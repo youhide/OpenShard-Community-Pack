@@ -174,6 +174,13 @@ const FALLBACK_GUMP = 0x3c;
 // nothing, so they are dropped rather than converted.
 const SKIP_DECO = /teleporter|blocker|warningitem|hintitem|trap|lever|obelisk|serpentpillar/i;
 
+// Somewhere a townsperson can plausibly spend the night: the chairs, benches,
+// stools, thrones and beds ServUO's own decoration data places inside Britannia's
+// buildings. There are well over a thousand of them across the two facets — more
+// than there are townsfolk — and every one is indoors, in a real room, on a floor.
+// See `assignNightHomes` for why that matters.
+const isSeat = (name) => /chair|bench|stool|throne|bed/i.test(name);
+
 const isDoor = (name) => /door|gate/i.test(name);
 const isContainer = (name) =>
   /chest|crate|barrel|box|drawer|armoire|bookcase|bookshelf|keg|basket|bag|backpack|cupboard|coffer|shelf|fillable/i.test(name);
@@ -429,6 +436,7 @@ function convertDeco() {
   const statics = [];
   const doors = [];
   const containers = [];
+  const seats = [];
   const skipped = {};
   const bboxes = {}; // town basename -> {minX, minY, maxX, maxY}
   let entries = 0;
@@ -460,6 +468,9 @@ function convertDeco() {
         } else if (isContainer(type)) {
           containers.push({ graphic, gump: CONTAINER_GUMPS[graphic] || FALLBACK_GUMP, x, y, z });
         } else {
+          // A seat is still a static — it is drawn like any other. It is only
+          // *also* noted, as a candidate night home.
+          if (isSeat(type)) seats.push({ x, y, z });
           statics.push({ graphic, x, y, z });
         }
         continue;
@@ -515,7 +526,7 @@ function convertDeco() {
       height: b.maxY - b.minY + 4,
     }))
     .filter((r) => r.width * r.height <= MAX_DOOR_REGION);
-  return { statics, doors, containers, doorRegions, skipped, entries };
+  return { statics, doors, containers, seats, doorRegions, skipped, entries };
 }
 
 // -------------------------------------------------------------- 4. emit
@@ -913,19 +924,50 @@ function convertVendors(creatures, takenTiles) {
 //
 // Neither reference has the data. ServUO's NPCs stand at their posts around the
 // clock; its only scheduled-movement mechanism is a hand-placed `WayPoint` chain a
-// builder walks an NPC along, and Britannia ships none for townsfolk. There is no
-// bedroom in `Data/Decoration` either — the houses are statics, with no notion of
-// which floor tile belongs to whom.
+// builder walks an NPC along, and Britannia ships none for townsfolk.
 //
-// So a night home is derived from the one thing that *is* known good: **another
-// townsperson's post in the same town**. Those are tiles ServUO itself placed a
-// standing mobile on, so they are reachable, indoors-or-out as the town is, and on
-// the floor. The town reshuffles at dusk and sorts itself out at dawn, which reads as
-// people going somewhere rather than as people standing still.
+// # The first derivation was the bug, not an approximation of it
+//
+// It sent each townsperson to **another townsperson's post in the same town**, on
+// the reasoning that those are tiles ServUO itself stood a mobile on, so they are
+// on the floor and reachable. They are. They are also, every one of them, someone
+// else's workplace. Measured on the file this produced: 292 townsfolk had a night
+// home, **292 of 292 landed exactly on another NPC's post**, 187 of them on a
+// *vendor's* post, and 118 were mutual swaps.
+//
+// A vendor carries its stock crate on layer 0x1A, so the shop is wherever the
+// shopkeeper is standing. At dusk the tavernkeeper walked to the innkeeper's
+// counter and the innkeeper walked to the tavernkeeper's, each with its shop on
+// its back, and double-clicking the person behind the smithy counter opened the
+// tailor's buy window. That is not a rough edge on the idea; it is the idea.
+//
+// # Seats, and why they are the right data
+//
+// `Data/Decoration` has no bedrooms, which is what the first version concluded and
+// stopped at. It does have **chairs** — `WoodenChair`, `BambooChair`,
+// `WoodenChairCushion`, `FancyWoodenChairCushion`, `FootStool`, `WoodenBench`,
+// `Stool`, both thrones, and the handful of beds. 401 of them in `britain.cfg`
+// alone, well over a thousand across the two facets: more seats than there are
+// townsfolk. Every one is indoors, inside a real room, placed by ServUO, and none
+// of them is anybody's post.
+//
+// So: the nearest **unclaimed** seat, claimed as it is taken. Claiming is what
+// makes this a matching rather than a set of independent nearest-picks, and it is
+// what makes a collision impossible rather than unlikely — two townsfolk cannot
+// converge on one tile, and a mutual swap has nowhere to happen.
+//
+// A vendor post is never a destination, seats or no seats. That single rule is
+// what keeps a shopkeeper from ever being found behind someone else's counter,
+// and it holds even where a town has run out of seats.
+//
+// The engine settles an NPC *near* its post rather than on it — `wander_step`
+// only walks home while further than the two-tile wander radius — so this reads
+// as people drifting to the taverns and houses at dusk, not as a town of statues
+// standing on the furniture.
 //
 // # How near
 //
-// The **nearest** such post between six and twenty tiles away. Both bounds earn
+// The **nearest** candidate between six and twenty tiles away. Both bounds earn
 // their place. Under six and the walk is invisible — the NPC is already inside its
 // two-tile wander range and never leaves. Over twenty and the engine's bounded A*
 // (`PATH_BUDGET`, 400 nodes) starts failing, at which point `step_toward` falls back
@@ -940,15 +982,15 @@ function convertVendors(creatures, takenTiles) {
 const NIGHT_HOME_MIN = 6;
 const NIGHT_HOME_MAX = 20;
 
-function assignNightHomes(npcs, regions) {
+function assignNightHomes(npcs, regions, seats) {
   const inRect = (x, y, r) =>
     x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
   // The most specific town a tile falls in — the same highest-priority-wins rule the
   // engine uses, since ServUO's nesting is flattened into a priority at conversion.
-  const townOf = (npc) => {
+  const townAt = (x, y) => {
     let best = null;
     for (const r of regions) {
-      if (!r.rects.some((rect) => inRect(npc.x, npc.y, rect))) continue;
+      if (!r.rects.some((rect) => inRect(x, y, rect))) continue;
       if (!best || r.priority > best.priority) best = r;
     }
     return best && best.name;
@@ -956,32 +998,100 @@ function assignNightHomes(npcs, regions) {
 
   const byTown = new Map();
   for (const npc of npcs) {
-    const town = townOf(npc);
+    const town = townAt(npc.x, npc.y);
     if (!town) continue; // out in the wilds: no town, no home to walk to
     if (!byTown.has(town)) byTown.set(town, []);
     byTown.get(town).push(npc);
   }
 
-  let homed = 0;
-  for (const group of byTown.values()) {
-    for (const npc of group) {
+  // Candidate destinations per town: every seat in it, plus — only as a fallback,
+  // and only when a town has fewer seats than people — the posts of townsfolk who
+  // keep no shop. A vendor's post is never offered.
+  const seatsByTown = new Map();
+  for (const seat of seats) {
+    const town = townAt(seat.x, seat.y);
+    if (!town) continue;
+    if (!seatsByTown.has(town)) seatsByTown.set(town, []);
+    seatsByTown.get(town).push(seat);
+  }
+
+  const dist = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+  const stats = { seated: 0, lodged: 0, homeless: 0 };
+
+  // "Never a vendor's post" has to be checked against the *tile*, not against
+  // where the candidate came from. ServUO stands some of its shopkeepers on the
+  // furniture in their own shop, so a couple of chairs are also counters — and a
+  // seat is exactly as wrong a place to send a stranger as a post is.
+  const vendorTiles = new Set(npcs.filter((n) => n.vendor).map((n) => `${n.x},${n.y}`));
+
+  for (const [town, group] of byTown) {
+    const candidates = [
+      ...(seatsByTown.get(town) || []).map((s) => ({ x: s.x, y: s.y, z: s.z, seat: true })),
+      ...group
+        .filter((n) => !n.vendor)
+        .map((n) => ({ x: n.x, y: n.y, z: n.z, seat: false, owner: n })),
+    ];
+    const taken = new Set();
+    // Sorted so the assignment does not depend on the order the XML happened to
+    // list people in: the closest pairing in the town is settled first, and a
+    // townsperson with only one candidate in range is not left out by someone who
+    // had a dozen.
+    const order = [...group].sort((a, b) => a.x - b.x || a.y - b.y);
+    for (const npc of order) {
       let best = null;
       let bestDist = Infinity;
-      for (const other of group) {
-        if (other === npc) continue;
-        const d = Math.max(Math.abs(other.x - npc.x), Math.abs(other.y - npc.y));
+      for (let i = 0; i < candidates.length; i++) {
+        if (taken.has(i)) continue;
+        const c = candidates[i];
+        // Its own post is not somewhere to walk to, and nobody else's counter is.
+        if (c.x === npc.x && c.y === npc.y) continue;
+        if (vendorTiles.has(`${c.x},${c.y}`)) continue;
+        // Nor is the post of someone who is already coming here. Claiming stops
+        // two townsfolk converging on one tile; it does not stop them trading
+        // places, which reads as two neighbours swapping houses every evening.
+        if (c.owner && c.owner.night_home
+            && c.owner.night_home[0] === npc.x && c.owner.night_home[1] === npc.y) continue;
+        const d = dist(c, npc);
         if (d < NIGHT_HOME_MIN || d > NIGHT_HOME_MAX || d >= bestDist) continue;
-        best = other;
+        // A seat always beats a post at the same distance; `d >= bestDist` above
+        // already keeps the first-found at a tie, and seats are listed first.
+        best = i;
         bestDist = d;
       }
-      // No neighbour at a walkable remove: this one keeps to its post, which is what
-      // every NPC does with the setting off anyway.
-      if (!best) continue;
-      npc.night_home = [best.x, best.y, best.z];
-      homed++;
+      // Nothing free at a walkable remove: this one keeps to its post, which is
+      // what every NPC does with the setting off anyway.
+      if (best === null) {
+        stats.homeless++;
+        continue;
+      }
+      taken.add(best);
+      const c = candidates[best];
+      npc.night_home = [c.x, c.y, c.z];
+      if (c.seat) stats.seated++;
+      else stats.lodged++;
     }
   }
-  return homed;
+
+  // The three things that made the old derivation wrong, asserted rather than
+  // hoped for. A regression here is silent in the game — it looks like a shard
+  // with confused shopkeepers, days after the file was generated.
+  const posts = new Set(npcs.map((n) => `${n.x},${n.y}`));
+  const vendorPosts = new Set(npcs.filter((n) => n.vendor).map((n) => `${n.x},${n.y}`));
+  const homes = npcs.filter((n) => n.night_home).map((n) => `${n.night_home[0]},${n.night_home[1]}`);
+  const onVendorPost = homes.filter((h) => vendorPosts.has(h)).length;
+  const shared = homes.length - new Set(homes).size;
+  if (onVendorPost) throw new Error(`${onVendorPost} night homes land on a vendor's post`);
+  if (shared) throw new Error(`${shared} night homes are shared between two townsfolk`);
+  const byPost = new Map(npcs.map((n) => [`${n.x},${n.y}`, n]));
+  const swaps = npcs.filter((n) => {
+    if (!n.night_home) return false;
+    const other = byPost.get(`${n.night_home[0]},${n.night_home[1]}`);
+    return other && other.night_home
+      && other.night_home[0] === n.x && other.night_home[1] === n.y;
+  }).length;
+  if (swaps) throw new Error(`${swaps} pairs of townsfolk swap posts at dusk`);
+  stats.onPost = homes.filter((h) => posts.has(h)).length;
+  return stats;
 }
 
 function emitVendors(v) {
@@ -1490,7 +1600,7 @@ function main() {
 
   // Vendors are emitted after the regions, because a night home is derived by
   // asking which town a post stands in.
-  const homed = assignNightHomes(vendors.npcs, regions.regions);
+  const homed = assignNightHomes(vendors.npcs, regions.regions, deco.seats);
   emitVendors(vendors);
   console.log(
     `  ${regions.regions.length} regions (` +
@@ -1501,7 +1611,11 @@ function main() {
         .join(", ") +
       ")"
   );
-  console.log(`  ${homed} townsfolk given a night home (gameplay.npc_schedule)`);
+  console.log(
+    `  night homes (gameplay.npc_schedule): ${homed.seated} to a seat, ` +
+      `${homed.lodged} to a neighbour's post, ${homed.homeless} keeping to their own; ` +
+      `${homed.onPost} on any post at all, 0 on a vendor's, 0 shared`
+  );
 
   console.log("Converting escort givers from felucca.xml ...");
   const escorts = convertEscorts(takenTiles);
