@@ -633,26 +633,80 @@ function scrapeOutfit(profession) {
   // The InitOutfit override's own additions. Only classes that resolve to both a
   // graphic and a layer are kept — anything else would be an item on layer zero,
   // which the client draws nowhere.
+  //
+  // ServUO writes *alternatives* two ways, and both matter because taking both halves
+  // puts a smith in ringmail AND an apron, which no ServUO smith ever wears:
+  //
+  //   AddItem(RandomBool() ? new QuarterStaff() : (Item)new ShepherdsCrook());
+  //   Item item = (RandomBool() ? null : new RingmailChest());  ... if (item == null)
+  //       AddItem(new FullApron());
+  //
+  // The first is a plain ternary between two items; the second is the Blacksmith's,
+  // where `null` means "wear the next thing instead". Both come back as a pair, and
+  // the caller picks one *per NPC* — which it can, because equipment is emitted per
+  // NPC and not per trade.
   const extras = [];
+  const alternates = [];
   const at = text.indexOf("InitOutfit");
   if (at >= 0) {
-    const body = text.slice(at, at + 2500);
-    const seen = new Set();
-    const re = /new (?:Server\.Items\.)?(\w+)\(([^)]*)\)/g;
-    let m;
-    while ((m = re.exec(body))) {
-      const key = m[1].toLowerCase();
+    let body = text.slice(at, at + 2500);
+    const NEW = "new (?:Server\\.Items\\.)?(\\w+)\\(([^)]*)\\)";
+    const item = (name, args) => {
+      const key = (name || "").toLowerCase();
       const layer = OUTFIT_LAYERS[key];
       const graphic = ITEM_GRAPHICS[key];
-      if (layer == null || graphic == null || seen.has(layer)) continue;
-      seen.add(layer);
-      // A literal hue in the constructor is kept; a `Utility.Random*Hue()` is left
-      // to the engine's own roll, which is the same table and varies per NPC.
-      const literal = /^\s*(0x[0-9A-Fa-f]+|\d+)\s*$/.exec(m[2] || "");
-      extras.push({ graphic, layer, hue: literal ? num(literal[1]) : 0 });
+      if (layer == null || graphic == null) return null;
+      // A literal hue in the constructor is kept; a `Utility.Random*Hue()` is left to
+      // the engine's own roll, which is the same table and varies per NPC.
+      const literal = /^\s*(0x[0-9A-Fa-f]+|\d+)\s*$/.exec(args || "");
+      return { graphic, layer, hue: literal ? num(literal[1]) : 0 };
+    };
+    // Blank a matched span so the plain pass below does not claim it a second time.
+    const consume = (m) => {
+      body = body.slice(0, m.index) + " ".repeat(m[0].length) + body.slice(m.index + m[0].length);
+    };
+    // Two alternatives usually sit on the *same* layer — two staves, two hats — and
+    // only the Blacksmith's null-shape pairs across layers. An earlier version
+    // required them to differ, which threw away every ordinary either/or and kept
+    // whichever half came first.
+    const pair = (a, b) => {
+      if (a && b) alternates.push([a, b]);
+      else if (a) extras.push(a);
+      else if (b) extras.push(b);
+    };
+
+    // Shape one, the plain ternary: `RandomBool() ? new QuarterStaff() : (Item)new
+    // ShepherdsCrook()`. Two items, wear one.
+    for (const m of [...body.matchAll(new RegExp(`\\?\\s*${NEW}\\s*:\\s*(?:\\(Item\\))?\\s*${NEW}`, "g"))]) {
+      pair(item(m[1], m[2]), item(m[3], m[4]));
+      consume(m);
+    }
+    // Shape two, the Blacksmith's: `RandomBool() ? null : new RingmailChest()`, where
+    // the `null` branch means "wear the thing the next guarded AddItem names instead".
+    // Narrow on purpose — it is one idiom in one place, and reading it as two separate
+    // items is what put a smith in ringmail *and* an apron, which no ServUO smith is.
+    for (const m of [...body.matchAll(new RegExp(`\\?\\s*(?:null\\s*:\\s*${NEW}|${NEW}\\s*:\\s*null)`, "g"))]) {
+      const first = item(m[1] || m[3], m[2] || m[4]);
+      consume(m);
+      const next = new RegExp(`AddItem\\(\\s*${NEW}`).exec(body.slice(m.index));
+      if (next) {
+        pair(first, item(next[1], next[2]));
+        // Blank the substitute too, at its real offset in the body.
+        consume({ index: m.index + next.index, 0: next[0] });
+      } else if (first) {
+        extras.push(first);
+      }
+    }
+    // Everything left is worn outright.
+    const seen = new Set(extras.concat(...alternates).map((it) => it.layer));
+    for (const m of [...body.matchAll(new RegExp(NEW, "g"))]) {
+      const made = item(m[1], m[2]);
+      if (!made || seen.has(made.layer)) continue;
+      seen.add(made.layer);
+      extras.push(made);
     }
   }
-  return (outfitCache[profession] = { extras, shoe });
+  return (outfitCache[profession] = { extras, alternates, shoe });
 }
 
 // ServUO's personal-name lists (Data/names.xml). The engine ships a spread of them
@@ -679,6 +733,9 @@ function convertVendors(creatures, takenTiles) {
   const stock = {};
   const unknown = {};
   const professions = new Set();
+  // How many of each trade have been placed, so an either/or in its outfit alternates
+  // down the row instead of every one of them making the same choice.
+  const placedOf = {};
 
   // Town NPCs are keyed off the *object*, not the region name: a profession is
   // lower-case (armorer, banker, minter), a creature/animal is capitalised — so a
@@ -722,7 +779,12 @@ function convertVendors(creatures, takenTiles) {
       takenTiles.add(`${x},${y}`);
 
       professions.add(prof);
-      const { extras, shoe } = scrapeOutfit(prof);
+      const { extras, alternates, shoe } = scrapeOutfit(prof);
+      // One half of each either/or, per NPC. Deterministic (`nth`, the running count
+      // of this trade) rather than random, so a regenerate does not rewrite the file —
+      // and alternating means a row of smiths is not all in ringmail.
+      const nth = (placedOf[prof] = (placedOf[prof] || 0) + 1);
+      const worn = extras.concat(alternates.map((pair) => pair[nth % pair.length]));
       const npc = {
         body: DEFAULT_BODY,
         notoriety: 7, // invulnerable — townsfolk are not loot
@@ -738,7 +800,7 @@ function convertVendors(creatures, takenTiles) {
         // Only what the trade's own InitOutfit adds. The base outfit — gender, skin,
         // hair, beard, shirt, trousers, shoes — is the engine's roll, so a street of
         // shopkeepers is not one robe repeated 738 times.
-        equipment: extras,
+        equipment: worn,
       };
       if (banker) npc.banker = true;
       else if (shop.length) {
