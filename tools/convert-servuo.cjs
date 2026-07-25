@@ -854,6 +854,7 @@ function convertEscorts(takenTiles) {
   const xml = fs.readFileSync(path.join(SERVUO, "Spawns", "felucca.xml"), "utf8");
   const npcs = [];
   const tiles = {};
+  const titles = new Set();
   for (const block of xml.split("<Points>").slice(1)) {
     const cx = num(tag(block, "CentreX")) ?? num(tag(block, "X"));
     const cy = num(tag(block, "CentreY")) ?? num(tag(block, "Y"));
@@ -862,6 +863,7 @@ function convertEscorts(takenTiles) {
     for (const name of parseObjects(tag(block, "Objects2") || "")) {
       const disp = ESCORTABLE[name.toLowerCase()];
       if (!disp) continue;
+      titles.add(disp);
       // The same one-NPC-per-tile rule the vendor pass follows, and the same
       // registry, so an escortable never lands on a shopkeeper: five tiles used to
       // carry both, and the quest binding and the shop crate fought over one mobile.
@@ -890,7 +892,7 @@ function convertEscorts(takenTiles) {
       tiles[`${x},${y}`] = "";
     }
   }
-  return { npcs, tiles };
+  return { npcs, tiles, titles };
 }
 
 // --------------------------------------------- 7. convert townsfolk speech
@@ -916,14 +918,53 @@ const WARES_KEYWORDS = ["sell", "wares", "goods", "stock", "shop", "price"];
 const GREET_KEYWORDS = ["hail", "hello", "greetings", "hi", "good day"];
 
 // A friendly list: "iron ingots, tongs and a shield".
+//
+// Deduplicated, because a buy list is keyed by graphic and several graphics share a
+// name — a baker stocks two bread-loaf tiles, so a naive join reads "bread loaf and
+// bread loaf".
 function andList(names) {
-  if (names.length <= 1) return names[0] || "";
-  return names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+  const seen = [...new Set(names)];
+  if (seen.length <= 1) return seen[0] || "";
+  return seen.slice(0, -1).join(", ") + " and " + seen[seen.length - 1];
 }
 
-function convertSpeech(placed) {
+// What an escortable answers. ServUO's `BaseEscortable` is one of the few NPC classes
+// that *does* ship lines, so these are its own: 1005653 when it loses its escorter,
+// 1042809 on arrival, and the "I am looking to go to X" ask. The engine says the ask,
+// the loss and the arrival itself (they fire on events, not on keywords); what belongs
+// in a keyword table is what a traveller answers when spoken to.
+const ESCORT_SPEECH = [
+  {
+    keywords: ["escort", "travel", "journey", "guide", "take", "lead"],
+    lines: [
+      "I am looking for an escort. Wilt thou take me?",
+      "I dare not travel these roads alone. Wilt thou lead me?",
+    ],
+  },
+  {
+    keywords: ["pay", "payment", "gold", "reward"],
+    lines: ["Payment will be made when we arrive, and gladly."],
+  },
+  {
+    keywords: ["job", "work", "trade", "profession", "occupation"],
+    lines: ["I am but a traveller, and I seek safe passage."],
+  },
+];
+
+function convertSpeech(placed, escortTitles) {
   const { male, female } = scrapeNames();
   const trades = [];
+  for (const title of [...escortTitles].sort()) {
+    trades.push({
+      title,
+      // The ask is spoken by the engine on approach (`BaseEscortable.OnMovement`), so
+      // the greeting here would only double it.
+      greetings: [],
+      barks: ["Is there no one who will escort me?"],
+      entries: ESCORT_SPEECH,
+      fallback: "",
+    });
+  }
   // Only the trades a populated Felucca actually stands up. ServUO has 250-odd NPC
   // classes and Britannia places 60 of them; a table for the rest is a quarter of a
   // megabyte the shard parses at every load and no NPC ever reads.
@@ -949,7 +990,8 @@ function convertSpeech(placed) {
     } else if (shop.length) {
       // The trade's real stock, in ServUO's own words — the item names the buy list
       // already carries, so nothing here is guessed.
-      const sample = andList(shop.slice(0, 4).map((it) => it.name));
+      const wares = [...new Set(shop.map((it) => it.name))];
+    const sample = andList(wares.slice(0, 4));
       entries.push({
         keywords: WARES_KEYWORDS,
         lines: [
@@ -959,15 +1001,27 @@ function convertSpeech(placed) {
       });
     }
 
+    // A line called out to nobody in particular. ServUO's townsfolk are silent here
+    // and its own source for street noise is the Town Crier (a news queue and a staff
+    // gump, a feature of its own) — so rather than write a personality per trade,
+    // these are the same derivation the wares answer uses: the trade names itself and
+    // what it actually stocks. A trade with no shop has nothing to call out, and stays
+    // quiet.
+    const barks = shop.length
+      ? [
+          `${andList([...new Set(shop.map((it) => it.name))].slice(0, 3))} for sale!`,
+          `${title.replace(/^the /, "")} at thy service!`,
+          `Wares for sale — come, look them over!`,
+        ]
+      : [];
+
     trades.push({
       title,
       // 500186 for a shopkeeper; a plain townsperson greets by name.
       greetings: shop.length
         ? ["Greetings.  Have a look around."]
         : [`Greetings, {name}.`, `Well met, {name}.`, `Good day to thee, {name}.`],
-      // ServUO townsfolk do not call out to an empty street, so neither do these.
-      // The engine supports barks; a shard that wants them writes them here.
-      barks: [],
+      barks,
       entries,
       // Nor do they answer speech they do not understand — that is Sphere's
       // `DEFAULT=`, and a shopkeeper replying to every passing conversation is worse
@@ -1295,7 +1349,7 @@ function main() {
   console.log(`  ${escorts.npcs.length} escortables placed as escort-quest givers`);
 
   console.log("Converting townsfolk speech and names ...");
-  const speech = convertSpeech(vendors.professions);
+  const speech = convertSpeech(vendors.professions, escorts.titles);
   emitSpeech(speech);
   console.log(
     `  ${speech.trades.length} trades with lines, ` +
